@@ -25,12 +25,13 @@ def moderators(supervisor, moderated):
             else:
                 click.echo(moderator["account"])
 
-def query_string(limit, category, author, post_filter):
+def query_string(limit, skip, category, author, post_filter):
     """
     Returns a query string created from the given query parameters.
     """
     parameters = {
         "limit" : limit,
+        "skip" : skip,
         "section" : "all",
         "type" : category,
         "filterBy" : post_filter
@@ -39,6 +40,33 @@ def query_string(limit, category, author, post_filter):
         parameters["author"] = author
         parameters["section"] = "author"
     return urllib.parse.urlencode(parameters)
+
+def build_response(limit, category, author, post_filter):
+    """
+    If limit is > 1000, we should call the API multiple times and build the
+    response from that.
+    """
+    skip = 0
+    if limit < 1000:
+        query = query_string(limit, skip, category, author, post_filter)
+        responses = requests.get("{}posts/?{}".format(API_BASE_URL,
+            query)).json()["results"]
+    else:
+        responses = []
+        while skip < limit:
+            if limit - skip < 1000:
+                remainder = limit - skip
+                query = query_string(remainder, skip, category, author,
+                    post_filter)
+            else:
+                query = query_string(1000, skip, category, author, post_filter)
+            response = requests.get("{}posts/?{}".format(API_BASE_URL,
+                query)).json()
+            if response["total"] < limit:
+                limit = response["total"]
+            responses.extend(response["results"])
+            skip += 1000
+    return responses
 
 @cli.command()
 @click.option("--category", default="all", help="Category of the contribution.",
@@ -59,16 +87,12 @@ def contribution(category, limit, tags, author, reviewed):
     else:
         post_filter = "review"
 
-    query = query_string(limit, category, author,
-        post_filter)
-    print("{}posts/{}".format(API_BASE_URL, query))
-    response = requests.get("{}posts/?{}".format(API_BASE_URL, query)).json()
-
+    contributions = build_response(limit, category, author, post_filter)
     if tags == "utopian-io":
         tags = tags.split()
     else:
         tags = tags.split(",")
 
-    for contribution in response["results"]:
+    for contribution in contributions:
         if not set(tags).isdisjoint(contribution["json_metadata"]["tags"]):
             click.echo(contribution["title"])
