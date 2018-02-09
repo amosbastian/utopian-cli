@@ -28,8 +28,17 @@ def moderators(supervisor, moderated):
 @click.option("--category", default="all", help="Category of the contribution.")
 @click.option("--limit", default=20,
     help="Limit of amount of contributions to retrieve.")
-def contribution(category, limit):
+@click.option("--tags", default="utopian-io",
+    help="Tags to filter the contributions by.")
+def contribution(category, limit, tags):
     response = requests.get("{}posts/?limit={}&status=any&type={}".format(
         API_BASE_URL, limit, category)).json()
+
+    if tags == "utopian-io":
+        tags = tags.split()
+    else:
+        tags = tags.split(",")
+
     for contribution in response["results"]:
-        click.echo(contribution["title"])
+        if not set(tags).isdisjoint(contribution["json_metadata"]["tags"]):
+            click.echo(contribution["title"])
