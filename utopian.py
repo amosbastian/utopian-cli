@@ -81,7 +81,9 @@ def build_response(limit, category, author, post_filter):
     help="Username to filter the contributions by.")
 @click.option("--reviewed/--unreviewed", default=True,
     help="Show only reviewed or unreviewed contributions.")
-def contribution(category, limit, tags, author, reviewed):
+@click.option("--title", default="",
+    help="String that should be in title of the contribution.")
+def contribution(category, limit, tags, author, reviewed, title):
     if reviewed:
         post_filter = "any"
     else:
@@ -94,5 +96,6 @@ def contribution(category, limit, tags, author, reviewed):
         tags = tags.split(",")
 
     for contribution in contributions:
-        if not set(tags).isdisjoint(contribution["json_metadata"]["tags"]):
+        if (not set(tags).isdisjoint(contribution["json_metadata"]["tags"])
+            and title in contribution["title"]):
             click.echo(contribution["title"])
