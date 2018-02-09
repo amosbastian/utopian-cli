@@ -23,3 +23,13 @@ def moderators(supervisor, moderated):
                     click.echo(moderator["account"])
             else:
                 click.echo(moderator["account"])
+
+@cli.command()
+@click.option("--category", default="all", help="Category of the contribution.")
+@click.option("--limit", default=20,
+    help="Limit of amount of contributions to retrieve.")
+def contribution(category, limit):
+    response = requests.get("{}posts/?limit={}&status=any&type={}".format(
+        API_BASE_URL, limit, category)).json()
+    for contribution in response["results"]:
+        click.echo(contribution["title"])
