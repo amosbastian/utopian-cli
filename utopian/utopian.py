@@ -11,13 +11,13 @@ def cli():
 
 @cli.command()
 @click.option("--supervisor", is_flag=True)
-@click.option("--moderated", default=0,
-    help="Minimum amount of contributions moderated.")
-def moderators(supervisor, moderated):
+@click.option("--reviewed", default=0,
+    help="Minimum amount of contributions reviewed.")
+def moderators(supervisor, reviewed):
     response = requests.get("{}moderators".format(API_BASE_URL)).json()
 
     for moderator in response["results"]:
-        if moderator["total_moderated"] > moderated:
+        if moderator["total_moderated"] > reviewed:
             if supervisor:
                 if ("supermoderator" in moderator 
                     and moderator["supermoderator"] == True):
@@ -42,9 +42,8 @@ def query_string(limit, skip, category, author, post_filter):
     return urllib.parse.urlencode(parameters)
 
 def build_response(limit, category, author, post_filter):
-    """
-    If limit is > 1000, we should call the API multiple times and build the
-    response from that.
+     """
+    Returns all contributions that match the given parameters.
     """
     skip = 0
     if limit < 1000:
@@ -83,7 +82,7 @@ def build_response(limit, category, author, post_filter):
     help="Show only reviewed or unreviewed contributions.")
 @click.option("--title", default="",
     help="String that should be in title of the contribution.")
-def contribution(category, limit, tags, author, reviewed, title):
+def contributions(category, limit, tags, author, reviewed, title):
     if reviewed:
         post_filter = "any"
     else:
