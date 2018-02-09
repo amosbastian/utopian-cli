@@ -25,7 +25,10 @@ def moderators(supervisor, moderated):
                 click.echo(moderator["account"])
 
 @cli.command()
-@click.option("--category", default="all", help="Category of the contribution.")
+@click.option("--category", default="all", help="Category of the contribution.",
+    type=click.Choice(["all", "blog", "ideas", "sub-projects", "development",
+        "bug-hunting", "translations", "graphics", "analysis", "social",
+        "documentation", "tutorials", "video-tutorials", "copywriting"]))
 @click.option("--limit", default=20,
     help="Limit of amount of contributions to retrieve.")
 @click.option("--tags", default="utopian-io",
