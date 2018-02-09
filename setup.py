@@ -4,7 +4,7 @@ requirements = ["Click", "requests"]
 
 setup(
     name="utopian",
-    version="0.1.0",
+    version="0.1.1",
     description="A CLI for the Utopian.io API.",
     license="MIT",
     author="amosbastian",
