@@ -8,7 +8,7 @@ utopian-cli
 .. image:: https://img.shields.io/pypi/pyversions/utopian.svg
   :target: https://pypi.python.org/pypi/utopian
 
-A command-line interface for [Utopian.io](https://utopian.io/) created using [Click](http://click.pocoo.org/6/)!
+A command-line interface for `Utopian.io<https://utopian.io>`_. created using `Click<http://click.pocoo.org/6/>`_.
 
 ------------
 Installation
