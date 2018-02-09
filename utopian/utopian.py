@@ -42,7 +42,7 @@ def query_string(limit, skip, category, author, post_filter):
     return urllib.parse.urlencode(parameters)
 
 def build_response(limit, category, author, post_filter):
-     """
+    """
     Returns all contributions that match the given parameters.
     """
     skip = 0
