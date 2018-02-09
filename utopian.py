@@ -1,6 +1,7 @@
 import click
 import json
 import requests
+import urllib.parse
 
 API_BASE_URL = "https://api.utopian.io/api/"
 
@@ -24,6 +25,21 @@ def moderators(supervisor, moderated):
             else:
                 click.echo(moderator["account"])
 
+def query_string(limit, category, author, post_filter):
+    """
+    Returns a query string created from the given query parameters.
+    """
+    parameters = {
+        "limit" : limit,
+        "section" : "all",
+        "type" : category,
+        "filterBy" : post_filter
+    }
+    if not author == "":
+        parameters["author"] = author
+        parameters["section"] = "author"
+    return urllib.parse.urlencode(parameters)
+
 @cli.command()
 @click.option("--category", default="all", help="Category of the contribution.",
     type=click.Choice(["all", "blog", "ideas", "sub-projects", "development",
@@ -33,9 +49,20 @@ def moderators(supervisor, moderated):
     help="Limit of amount of contributions to retrieve.")
 @click.option("--tags", default="utopian-io",
     help="Tags to filter the contributions by.")
-def contribution(category, limit, tags):
-    response = requests.get("{}posts/?limit={}&status=any&type={}".format(
-        API_BASE_URL, limit, category)).json()
+@click.option("--author", default="",
+    help="Username to filter the contributions by.")
+@click.option("--reviewed/--unreviewed", default=True,
+    help="Show only reviewed or unreviewed contributions.")
+def contribution(category, limit, tags, author, reviewed):
+    if reviewed:
+        post_filter = "any"
+    else:
+        post_filter = "review"
+
+    query = query_string(limit, category, author,
+        post_filter)
+    print("{}posts/{}".format(API_BASE_URL, query))
+    response = requests.get("{}posts/?{}".format(API_BASE_URL, query)).json()
 
     if tags == "utopian-io":
         tags = tags.split()
