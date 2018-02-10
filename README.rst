@@ -33,7 +33,9 @@ Usage
     Commands:
       contributions
       moderators
-
+      points         Takes a given date and account name and...
+      sponsors
+      stats
 
 Contributions
 -------------
@@ -63,6 +65,34 @@ Moderators
     Usage: utopian moderators [OPTIONS]
 
     Options:
-      --supervisor
+      --supervisor        Flag for only showing supervisors.
+      --j                 Print moderator in JSON format.
+      --account TEXT      Specific moderator account.
       --reviewed INTEGER  Minimum amount of contributions reviewed.
       --help              Show this message and exit.
+            Show this message and exit.
+
+Sponsors
+--------
+
+.. code-block::
+
+    Usage: utopian sponsors [OPTIONS]
+
+    Options:
+      --j             Print sponsor in JSON format.
+      --account TEXT  Sponsor's account name.
+      --help          Show this message and exit.
+      
+Points
+------
+ 
+.. code-block::
+ 
+    Usage: utopian points [OPTIONS] DATE ACCOUNT
+
+      Takes a given date and account name and analyses the account's reviewed
+      contributions from now until the given date.
+
+    Options:
+      --help  Show this message and exit.
