@@ -4,6 +4,7 @@ import requests
 import urllib.parse
 
 API_BASE_URL = "https://api.utopian.io/api/"
+BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
 
 @click.group()
 def cli():
@@ -97,4 +98,6 @@ def contributions(category, limit, tags, author, reviewed, title):
     for contribution in contributions:
         if (not set(tags).isdisjoint(contribution["json_metadata"]["tags"])
             and title in contribution["title"]):
-            click.echo(contribution["title"])
+            author = contribution["author"]
+            permlink = contribution["permlink"]
+            click.echo(BASE_URL.format(author, permlink))
