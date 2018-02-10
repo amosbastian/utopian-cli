@@ -101,3 +101,17 @@ def contributions(category, limit, tags, author, reviewed, title):
             author = contribution["author"]
             permlink = contribution["permlink"]
             click.echo(BASE_URL.format(author, permlink))
+
+@cli.command()
+@click.option("--category", default="blog", help="Category of the contribution.",
+    type=click.Choice(["blog", "ideas", "sub-projects", "development",
+        "bug-hunting", "translations", "graphics", "analysis", "social",
+        "documentation", "tutorials", "video-tutorials", "copywriting"]))
+def stats(category):
+    response = requests.get("{}/stats".format(API_BASE_URL)).json()["stats"]
+    if category:
+        for c in response["categories"]:
+            if category == c:
+                click.echo(json.dumps(response["categories"][c], indent=4,
+                    sort_keys=True))
+
