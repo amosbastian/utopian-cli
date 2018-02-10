@@ -1,9 +1,9 @@
 import click
+import datetime
 import json
 import requests
 import urllib.parse
 from dateutil.parser import parse
-import datetime
 
 API_BASE_URL = "https://api.utopian.io/api/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
@@ -118,7 +118,7 @@ def contributions(category, limit, tags, author, reviewed, title):
             click.echo(BASE_URL.format(author, permlink))
 
 @cli.command()
-@click.option("--category", default="blog", help="Category of the contribution.",
+@click.option("--category", default="blog", help="Contribution category.",
     type=click.Choice(["blog", "ideas", "sub-projects", "development",
         "bug-hunting", "translations", "graphics", "analysis", "social",
         "documentation", "tutorials", "video-tutorials", "copywriting"]))
@@ -142,6 +142,9 @@ def sponsors(j, account):
             click.echo(sponsor["account"])
 
 class Date(click.ParamType):
+    """
+    A custom type for the approved command.
+    """
     name = "date"
 
     def convert(self, value, param, ctx):
@@ -153,10 +156,17 @@ class Date(click.ParamType):
 DATE = Date()
 
 def is_moderator(account):
+    """
+    Function that checks if the given account is a moderator or not.
+    """
     moderators = requests.get("{}moderators".format(API_BASE_URL)).json()
     return account in [m["account"] for m in moderators["results"]]
 
 def moderator_query(limit, skip):
+    """
+    Create query string used by the reviewed_by function.
+    TODO: merge this with the other query function and make it more dynamic.
+    """
     parameters = {
         "limit" : limit,
         "skip" : skip,
@@ -167,6 +177,10 @@ def moderator_query(limit, skip):
     return urllib.parse.urlencode(parameters)
 
 def reviewed_by(date, account):
+    """
+    Returns a list of all contributions reviewed by the given account between
+    now and the given date.
+    """
     skip = 0
     responses = []
     for i in range(25):
@@ -184,6 +198,9 @@ def reviewed_by(date, account):
 from collections import Counter
 
 def category_points(category):
+    """
+    Convert category to points.
+    """
     if category == "translations":
         return 1.25
     elif (category == "development" or category == "video-tutorials"):
@@ -216,7 +233,8 @@ def approved(date, account):
         click.echo("Period:   {} to {}".format(datetime.datetime.now().date(),
             date.date()))
         click.echo("Approved: {}\nPoints:   {}".format(approved, points))
-        click.echo("\n{}'s top 10 in that period:".format(account))
+        click.echo("\n{}'s top {} in that period:".format(account,
+            len(Counter(authors).most_common(10))))
         for i, author in enumerate(Counter(authors).most_common(10)):
             click.echo("{0:2} - {1:16} - {2}".format(i + 1, author[0],
                 author[1]))
