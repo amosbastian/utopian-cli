@@ -18,9 +18,10 @@ def cli():
     pass
 
 @cli.command()
-@click.option("--supervisor", is_flag=True)
-@click.option("--j", is_flag=True)
-@click.option("--account", default="")
+@click.option("--supervisor", is_flag=True,
+    help="Flag for only showing supervisors.")
+@click.option("--j", is_flag=True, help="Print moderator in JSON format.")
+@click.option("--account", default="", help="Specific moderator account.")
 @click.option("--reviewed", default=0,
     help="Minimum amount of contributions reviewed.")
 def moderators(supervisor, reviewed, j, account):
@@ -133,7 +134,7 @@ def stats(category):
 
 @cli.command()
 @click.option("--j", is_flag=True, help="Print sponsor in JSON format.")
-@click.option("--account", default="", help="Print sponsor with given name.")
+@click.option("--account", default="", help="Sponsor's account name.")
 def sponsors(j, account):
     response = requests.get("{}sponsors".format(API_BASE_URL)).json()
     for sponsor in response["results"]:
@@ -183,6 +184,10 @@ def category_points(category, reviewed):
 @click.argument("date", type=DATE)
 @click.argument("account", type=str)
 def points(date, account):
+    """
+    Takes a given date and account name and analyses the account's reviewed
+    contributions from now until the given date.
+    """
     if datetime.datetime.now() < date:
         click.echo("Argument date must be in the past...")
         return
