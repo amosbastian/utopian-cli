@@ -19,6 +19,7 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: End Users/Desktop",
         "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.6"
     ],
     keywords="utopian cli"
