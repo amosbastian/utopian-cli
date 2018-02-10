@@ -218,4 +218,5 @@ def approved(date, account):
         click.echo("Approved: {}\nPoints:   {}".format(approved, points))
         click.echo("\n{}'s top 10 in that period:".format(account))
         for i, author in enumerate(Counter(authors).most_common(10)):
-            click.echo("{0:2} - {1:16} - {2}".format(i + 1, author[0], author[1]))
+            click.echo("{0:2} - {1:16} - {2}".format(i + 1, author[0],
+                author[1]))
