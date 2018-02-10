@@ -4,6 +4,7 @@ import json
 import requests
 import urllib.parse
 from dateutil.parser import parse
+from collections import Counter
 
 API_BASE_URL = "https://api.utopian.io/api/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
@@ -162,79 +163,68 @@ def is_moderator(account):
     moderators = requests.get("{}moderators".format(API_BASE_URL)).json()
     return account in [m["account"] for m in moderators["results"]]
 
-def moderator_query(limit, skip):
-    """
-    Create query string used by the reviewed_by function.
-    TODO: merge this with the other query function and make it more dynamic.
-    """
-    parameters = {
-        "limit" : limit,
-        "skip" : skip,
-        "section" : "any",
-        "sortBy" : "created"
-    }
-
-    return urllib.parse.urlencode(parameters)
-
-def reviewed_by(date, account):
-    """
-    Returns a list of all contributions reviewed by the given account between
-    now and the given date.
-    """
-    skip = 0
-    responses = []
-    for i in range(25):
-        query = moderator_query(1000, skip)
-        URL = "{}posts/?{}".format(API_BASE_URL, query)
-        response = requests.get(URL).json()["results"]
-        for contribution in response:
-            if date < parse(contribution["created"]):
-                if contribution["moderator"] == account:
-                    responses.append(contribution)
-            else:
-                return responses
-        skip += 1000
-
-from collections import Counter
-
-def category_points(category):
+def category_points(category, reviewed):
     """
     Convert category to points.
     """
     if category == "translations":
-        return 1.25
+        multiplier = 1.25
     elif (category == "development" or category == "video-tutorials"):
-        return 1
+        multiplier = 1.0
     elif (category == "graphics" or category == "tutorials"
         or category == "analysis" or category == "blog"
         or category == "bug-hunting"):
-        return 0.75
+        multiplier = 0.75
     else:
-        return 0.5
+        multiplier = 0.5
+    return multiplier * reviewed
 
 @cli.command()
 @click.argument("date", type=DATE)
 @click.argument("account", type=str)
-def approved(date, account):
+def points(date, account):
     if datetime.datetime.now() < date:
         click.echo("Argument date must be in the past...")
         return
     if not is_moderator(account):
         click.echo("{} is not a moderator".format(account))
     else:
-        responses = reviewed_by(date, account)
-        approved = len(responses)
-        points = 0
+        # Get total amount of reviewed posts by moderator
+        total = requests.get("{}posts/?limit=1&moderator={}".format(
+            API_BASE_URL, account)).json()["total"]\
+        # Use this as query
+        query = "{}posts/?limit={}&moderator={}".format(API_BASE_URL, total,
+            account)
+
+        response = requests.get(query).json()["results"]
+        reviewed_categories = {}
         authors = []
-        for contribution in responses:
-            points += category_points(contribution["json_metadata"]["type"])
-            authors.append(contribution["author"])
-    
-        click.echo("Period:   {} to {}".format(datetime.datetime.now().date(),
-            date.date()))
-        click.echo("Approved: {}\nPoints:   {}".format(approved, points))
-        click.echo("\n{}'s top {} in that period:".format(account,
-            len(Counter(authors).most_common(10))))
-        for i, author in enumerate(Counter(authors).most_common(10)):
-            click.echo("{0:2} - {1:16} - {2}".format(i + 1, author[0],
-                author[1]))
+        # Loop over all reviewed contributions and build dictionary
+        for contribution in response:
+            if date < parse(contribution["created"]):
+                category = contribution["json_metadata"]["type"]
+                reviewed_categories.setdefault(category, {
+                        "accepted" : 0,
+                        "rejected" : 0,
+                        "total" : 0
+                    })
+                if contribution["flagged"]:
+                    reviewed_categories[category]["rejected"] += 1
+                else:
+                    reviewed_categories[category]["accepted"] += 1
+                reviewed_categories[category]["total"] += 1
+
+        moderation_points = 0
+        total_moderated = 0
+        # Print the moderator's overview in the given time period
+        for key, value in reviewed_categories.items():
+            click.echo(key)
+            click.echo("\tReviewed:\t{} ({} / {})".format(value["total"],
+                value["accepted"], value["rejected"]))
+            c_points = category_points(key, value["total"])
+            click.echo("\tPoints:\t\t{}".format(c_points))
+            moderation_points += c_points
+            total_moderated += value["total"]
+        click.echo("Overall")
+        click.echo("\tReviewed:\t{}".format(total_moderated))
+        click.echo("\tPoints:\t\t{}".format(moderation_points))
