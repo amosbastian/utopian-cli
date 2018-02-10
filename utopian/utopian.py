@@ -115,3 +115,13 @@ def stats(category):
                 click.echo(json.dumps(response["categories"][c], indent=4,
                     sort_keys=True))
 
+@cli.command()
+@click.option("--j", is_flag=True)
+@click.option("--account", default="", help="Sponsor's account name.")
+def sponsors(j, account):
+    response = requests.get("{}sponsors".format(API_BASE_URL)).json()
+    for sponsor in response["results"]:
+        if j and account in sponsor["account"]:
+            click.echo(json.dumps(sponsor, indent=4, sort_keys=True))
+        elif account in sponsor["account"]:
+            click.echo(sponsor["account"])
