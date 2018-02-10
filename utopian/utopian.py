@@ -2,9 +2,13 @@ import click
 import datetime
 import json
 import requests
-import urllib.parse
 from dateutil.parser import parse
 from collections import Counter
+
+try:
+    from urllib import urlencode
+except ImportError:
+    from urllib.parse import urlencode
 
 API_BASE_URL = "https://api.utopian.io/api/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
@@ -21,15 +25,11 @@ def cli():
     help="Minimum amount of contributions reviewed.")
 def moderators(supervisor, reviewed, j, account):
     response = requests.get("{}moderators".format(API_BASE_URL)).json()
-
     for moderator in response["results"]:
         if moderator["total_moderated"] > reviewed:
-            if account == "":
-                account = moderator["account"]
             if supervisor:
                 if ("supermoderator" in moderator 
-                    and moderator["supermoderator"] == True
-                    and account in moderator["account"]):
+                    and moderator["supermoderator"] == True):
                     if j:
                         click.echo(json.dumps(moderator, indent=4,
                             sort_keys=True))
@@ -56,7 +56,7 @@ def query_string(limit, skip, category, author, post_filter):
     if not author == "":
         parameters["author"] = author
         parameters["section"] = "author"
-    return urllib.parse.urlencode(parameters)
+    return urlencode(parameters)
 
 def build_response(limit, category, author, post_filter):
     """
