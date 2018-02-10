@@ -2,6 +2,8 @@ import click
 import json
 import requests
 import urllib.parse
+from dateutil.parser import parse
+import datetime
 
 API_BASE_URL = "https://api.utopian.io/api/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
@@ -138,9 +140,6 @@ def sponsors(j, account):
             click.echo(json.dumps(sponsor, indent=4, sort_keys=True))
         elif account in sponsor["account"]:
             click.echo(sponsor["account"])
-
-from dateutil.parser import parse
-import datetime
 
 class Date(click.ParamType):
     name = "date"
