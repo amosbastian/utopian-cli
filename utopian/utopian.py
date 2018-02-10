@@ -138,3 +138,85 @@ def sponsors(j, account):
             click.echo(json.dumps(sponsor, indent=4, sort_keys=True))
         elif account in sponsor["account"]:
             click.echo(sponsor["account"])
+
+from dateutil.parser import parse
+import datetime
+
+class Date(click.ParamType):
+    name = "date"
+
+    def convert(self, value, param, ctx):
+        try:
+            return parse(value) 
+        except ValueError:
+            self.fail("{} is not a valid date!".format(value, param, ctx))
+
+DATE = Date()
+
+def is_moderator(account):
+    moderators = requests.get("{}moderators".format(API_BASE_URL)).json()
+    return account in [m["account"] for m in moderators["results"]]
+
+def moderator_query(limit, skip):
+    parameters = {
+        "limit" : limit,
+        "skip" : skip,
+        "section" : "any",
+        "sortBy" : "created"
+    }
+
+    return urllib.parse.urlencode(parameters)
+
+def reviewed_by(date, account):
+    skip = 0
+    responses = []
+    for i in range(25):
+        query = moderator_query(1000, skip)
+        URL = "{}posts/?{}".format(API_BASE_URL, query)
+        response = requests.get(URL).json()["results"]
+        for contribution in response:
+            if date < parse(contribution["created"]):
+                if contribution["moderator"] == account:
+                    responses.append(contribution)
+            else:
+                return responses
+        skip += 1000
+
+from collections import Counter
+
+def category_points(category):
+    if category == "translations":
+        return 1.25
+    elif (category == "development" or category == "video-tutorials"):
+        return 1
+    elif (category == "graphics" or category == "tutorials"
+        or category == "analysis" or category == "blog"
+        or category == "bug-hunting"):
+        return 0.75
+    else:
+        return 0.5
+
+@cli.command()
+@click.argument("date", type=DATE)
+@click.argument("account", type=str)
+def approved(date, account):
+    if datetime.datetime.now() < date:
+        click.echo("Argument date must be in the past...")
+        return
+    if not is_moderator(account):
+        click.echo("{} is not a moderator".format(account))
+    else:
+        responses = reviewed_by(date, account)
+        approved = len(responses)
+        points = 0
+        authors = []
+        for contribution in responses:
+            points += category_points(contribution["json_metadata"]["type"])
+            authors.append(contribution["author"])
+    
+        click.echo("Period:   {} to {}".format(datetime.datetime.now().date(),
+            date.date()))
+        click.echo("Approved: {}\nPoints:   {}".format(approved, points))
+        click.echo("\n{}'s top 10 in that period:".format(account))
+        for i, author in enumerate(Counter(authors).most_common(10)):
+            click.echo("{0:2} - {1:16} - {2}".format(i + 1, author[0], author[1]))
