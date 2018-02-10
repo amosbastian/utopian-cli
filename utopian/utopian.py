@@ -12,19 +12,32 @@ def cli():
 
 @cli.command()
 @click.option("--supervisor", is_flag=True)
+@click.option("--j", is_flag=True)
+@click.option("--account", default="")
 @click.option("--reviewed", default=0,
     help="Minimum amount of contributions reviewed.")
-def moderators(supervisor, reviewed):
+def moderators(supervisor, reviewed, j, account):
     response = requests.get("{}moderators".format(API_BASE_URL)).json()
 
     for moderator in response["results"]:
         if moderator["total_moderated"] > reviewed:
+            if account == "":
+                account = moderator["account"]
             if supervisor:
                 if ("supermoderator" in moderator 
-                    and moderator["supermoderator"] == True):
+                    and moderator["supermoderator"] == True
+                    and account in moderator["account"]):
+                    if j:
+                        click.echo(json.dumps(moderator, indent=4,
+                            sort_keys=True))
+                    else:
+                        click.echo(moderator["account"])
+            elif account in moderator["account"]:
+                if j:
+                    click.echo(json.dumps(moderator, indent=4,
+                        sort_keys=True))
+                else:
                     click.echo(moderator["account"])
-            else:
-                click.echo(moderator["account"])
 
 def query_string(limit, skip, category, author, post_filter):
     """
@@ -116,8 +129,8 @@ def stats(category):
                     sort_keys=True))
 
 @cli.command()
-@click.option("--j", is_flag=True)
-@click.option("--account", default="", help="Sponsor's account name.")
+@click.option("--j", is_flag=True, help="Print sponsor in JSON format.")
+@click.option("--account", default="", help="Print sponsor with given name.")
 def sponsors(j, account):
     response = requests.get("{}sponsors".format(API_BASE_URL)).json()
     for sponsor in response["results"]:
