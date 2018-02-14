@@ -4,6 +4,7 @@ import json
 import requests
 from dateutil.parser import parse
 from collections import Counter
+from prettytable import PrettyTable
 
 try:
     from urllib import urlencode
@@ -180,10 +181,16 @@ def category_points(category, reviewed):
         multiplier = 0.5
     return multiplier * reviewed
 
+def percentage(accepted, rejected):
+    if rejected == 0:
+        return 0
+    else:
+        return accepted / rejected
+
 @cli.command()
 @click.argument("date", type=DATE)
 @click.argument("account", type=str)
-def points(date, account):
+def performance(date, account):
     """
     Takes a given date and account name and analyses the account's reviewed
     contributions from now until the given date.
@@ -219,17 +226,24 @@ def points(date, account):
                     reviewed_categories[category]["accepted"] += 1
                 reviewed_categories[category]["total"] += 1
 
-        moderation_points = 0
-        total_moderated = 0
+        total_points = 0
+        total_accepted = 0
+        total_rejected = 0
+        table = PrettyTable(["Category", "Reviewed", "Accepted", "Rejected",
+            "%", "Points"])
         # Print the moderator's overview in the given time period
         for key, value in reviewed_categories.items():
-            click.echo(key)
-            click.echo("\tReviewed:\t{} ({} / {})".format(value["total"],
-                value["accepted"], value["rejected"]))
-            c_points = category_points(key, value["total"])
-            click.echo("\tPoints:\t\t{}".format(c_points))
-            moderation_points += c_points
-            total_moderated += value["total"]
-        click.echo("Overall")
-        click.echo("\tReviewed:\t{}".format(total_moderated))
-        click.echo("\tPoints:\t\t{}".format(moderation_points))
+            reviewed = value["total"]
+            accepted = value["accepted"]
+            rejected = value["rejected"]
+            points = category_points(key, reviewed)
+            table.add_row([key, reviewed, accepted, rejected, 
+                "{:.2f}%".format(percentage(accepted, rejected)), points])
+            total_points += points
+            total_accepted += accepted
+            total_rejected += rejected
+
+        table.add_row(["all", total_accepted + total_rejected, total_accepted,
+            total_rejected, "{:.2f}%".format(percentage(total_accepted,
+                total_rejected)), total_points])
+        click.echo(table)

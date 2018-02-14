@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-requirements = ["Click", "requests", "python-dateutil"]
+requirements = ["Click", "requests", "python-dateutil", "prettytable"]
 
 setup(
     name="utopian",
