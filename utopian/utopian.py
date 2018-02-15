@@ -150,7 +150,7 @@ def sponsors(j, account):
 
 class Date(click.ParamType):
     """
-    A custom type for the approved command.
+    A custom type for the performance command.
     """
     name = "date"
 
@@ -394,12 +394,19 @@ def performance(account_type, account, date, days, details, limit):
             table = moderator_details(authors, limit)
         click.echo(table)
     elif account_type == "contributor":
-        total = requests.get(build_url("posts", {"section" : "author", 
+        total_accepted = requests.get(build_url("posts", {"section" : "author", 
             "limit" : 1, "author" : account})).json()["total"]
-        response = requests.get(build_url("posts", {"section" : "author", 
-            "limit" : total, "author" : account})).json()["results"]
+        accepted = requests.get(build_url("posts", {"section" : "author", 
+            "limit" : total_accepted, "author" : account})).json()["results"]
+        total_rejected = requests.get(build_url("posts", {"section" : "author", 
+            "limit" : 1, "author" : account, "status" : "flagged"}
+            )).json()["total"]
+        rejected = requests.get(build_url("posts", {"section" : "author", 
+            "limit" : total_accepted, "author" : account, "status" : "flagged"}
+            )).json()["results"]
 
-        contributed_categories, moderators = contributor_dictionary(response,
+        accepted.extend(rejected)
+        contributed_categories, moderators = contributor_dictionary(accepted,
             date)
         if not details:
             table = contributor_table(contributed_categories)
