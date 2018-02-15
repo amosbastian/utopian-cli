@@ -185,7 +185,7 @@ def percentage(accepted, rejected):
     if rejected == 0:
         return 0
     else:
-        return accepted / rejected
+        return float(accepted) / rejected * 100
 
 @cli.command()
 @click.argument("date", type=DATE)
@@ -246,4 +246,6 @@ def performance(date, account):
         table.add_row(["all", total_accepted + total_rejected, total_accepted,
             total_rejected, "{:.2f}%".format(percentage(total_accepted,
                 total_rejected)), total_points])
+        table.align = "r"
+        table.align["Category"] = "l"
         click.echo(table)
