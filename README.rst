@@ -84,8 +84,8 @@ Sponsors
       --account TEXT  Sponsor's account name.
       --help          Show this message and exit.
       
-Points
-------
+Performance
+-----------
  
 .. code-block::
  
