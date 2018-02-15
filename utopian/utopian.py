@@ -60,6 +60,10 @@ def query_string(limit, skip, category, author, post_filter):
         parameters["section"] = "author"
     return urlencode(parameters)
 
+def build_url(api, query_parameters=None):
+    URL = "{}{}/?{}".format(API_BASE_URL, api, urlencode(query_parameters))
+    return URL
+
 def build_response(limit, category, author, post_filter):
     """
     Returns all contributions that match the given parameters.
@@ -183,69 +187,147 @@ def category_points(category, reviewed):
 
 def percentage(accepted, rejected):
     if rejected == 0:
-        return 0
+        return 100
     else:
         return float(accepted) / rejected * 100
 
+def contributor_dictionary(response, date):
+    contributed_categories = {}
+    moderators = []
+    for contribution in response:
+        if date < parse(contribution["created"]):
+            moderators.append(contribution["moderator"])
+            category = contribution["json_metadata"]["type"]
+            reward = float(contribution["pending_payout_value"].split(" ")[0])
+            if reward == 0:
+                reward = float(contribution["total_payout_value"].split(" ")[0])
+            contributed_categories.setdefault(category, {
+                    "accepted" : 0,
+                    "rejected" : 0,
+                    "reward" : 0,
+                    "total" : 0
+                })
+            if contribution["flagged"]:
+                contributed_categories[category]["rejected"] += 1
+            else:
+                contributed_categories[category]["accepted"] += 1
+            contributed_categories[category]["total"] += 1
+            contributed_categories[category]["reward"] += reward
+    return contributed_categories
+
+
+def moderator_dictionary(response, date):
+    reviewed_categories = {}
+    authors = []
+    for contribution in response:
+        if date < parse(contribution["created"]):
+            authors.append(contribution["author"])
+            category = contribution["json_metadata"]["type"]
+            reviewed_categories.setdefault(category, {
+                    "accepted" : 0,
+                    "rejected" : 0,
+                    "total" : 0
+                })
+            if contribution["flagged"]:
+                reviewed_categories[category]["rejected"] += 1
+            else:
+                reviewed_categories[category]["accepted"] += 1
+            reviewed_categories[category]["total"] += 1
+    return reviewed_categories
+
+def moderator_table(reviewed_categories):
+    total_points = 0
+    total_accepted = 0
+    total_rejected = 0
+    table = PrettyTable(["Category", "Reviewed", "Accepted", "Rejected", "%",
+        "Points"])
+
+    for key, value in reviewed_categories.items():
+        reviewed = value["total"]
+        accepted = value["accepted"]
+        rejected = value["rejected"]
+        points = category_points(key, reviewed)
+        table.add_row([key, reviewed, accepted, rejected, 
+            "{:.2f}%".format(percentage(accepted, rejected)), points])
+        total_points += points
+        total_accepted += accepted
+        total_rejected += rejected
+
+    table.add_row(["all", total_accepted + total_rejected, total_accepted,
+        total_rejected, "{:.2f}%".format(percentage(total_accepted,
+            total_rejected)), total_points])
+    table.align = "r"
+    table.align["Category"] = "l"
+    return table
+
+def contributor_table(contributed_categories):
+    total_accepted = 0
+    total_reward = 0
+    total_rejected = 0
+    table = PrettyTable(["Category", "Contributed", "Accepted", "Rejected", "%",
+        "Reward"])
+
+    for key, value in contributed_categories.items():
+        reviewed = value["total"]
+        accepted = value["accepted"]
+        reward = value["reward"]
+        rejected = value["rejected"]
+        table.add_row([key, reviewed, accepted, rejected, 
+            "{:.2f}%".format(percentage(accepted, rejected)),
+            "{:.2f}$".format(reward)])
+        total_accepted += accepted
+        total_reward += reward
+        total_rejected += rejected
+
+    table.add_row(["all", total_accepted + total_rejected, total_accepted,
+        total_rejected, "{:.2f}%".format(percentage(total_accepted,
+            total_rejected)), "{:.2f}$".format(total_reward)])
+
+    table.align = "r"
+    table.align["Category"] = "l"
+    return table
+
 @cli.command()
-@click.argument("date", type=DATE)
 @click.argument("account", type=str)
-def performance(date, account):
+@click.option("--date", type=DATE)
+@click.option("--days", type=int)
+@click.option("--contributor", "account_type", flag_value="contributor",
+    default=True)
+@click.option("--moderator", "account_type", flag_value="moderator")
+def performance(account_type, account, date, days):
     """
     Takes a given date and account name and analyses the account's reviewed
     contributions from now until the given date.
     """
-    if datetime.datetime.now() < date:
+    click.echo(account_type)
+    if (date and days) or (not date and not days):
+        click.echo("Choose either an amount of days or a specific date.")
+        return
+    if date and datetime.datetime.now() < date:
         click.echo("Argument date must be in the past...")
         return
-    if not is_moderator(account):
+    if not date and days:
+        date = datetime.datetime.now() - datetime.timedelta(days=days)
+
+    if account_type == "moderator" and not is_moderator(account):
         click.echo("{} is not a moderator".format(account))
-    else:
-        # Get total amount of reviewed posts by moderator
-        total = requests.get("{}posts/?limit=1&moderator={}".format(
-            API_BASE_URL, account)).json()["total"]\
-        # Use this as query
-        query = "{}posts/?limit={}&moderator={}".format(API_BASE_URL, total,
-            account)
-
-        response = requests.get(query).json()["results"]
-        reviewed_categories = {}
-        authors = []
+        return
+    elif account_type == "moderator" and is_moderator(account):
+        total = requests.get(build_url("posts",
+            {"moderator" : account, "limit" : 1})).json()["total"]
+        response = requests.get(build_url("posts", {"moderator" : account,
+            "limit" : total})).json()["results"]
+        
         # Loop over all reviewed contributions and build dictionary
-        for contribution in response:
-            if date < parse(contribution["created"]):
-                category = contribution["json_metadata"]["type"]
-                reviewed_categories.setdefault(category, {
-                        "accepted" : 0,
-                        "rejected" : 0,
-                        "total" : 0
-                    })
-                if contribution["flagged"]:
-                    reviewed_categories[category]["rejected"] += 1
-                else:
-                    reviewed_categories[category]["accepted"] += 1
-                reviewed_categories[category]["total"] += 1
+        reviewed_categories = moderator_dictionary(response, date)
+        table = moderator_table(reviewed_categories)
+        click.echo(table)
+    elif account_type == "contributor":
+        total = requests.get(build_url("posts", {"section" : "author", 
+            "limit" : 1, "author" : account})).json()["total"]
+        response = requests.get(build_url("posts", {"section" : "author", 
+            "limit" : total, "author" : account})).json()["results"]
 
-        total_points = 0
-        total_accepted = 0
-        total_rejected = 0
-        table = PrettyTable(["Category", "Reviewed", "Accepted", "Rejected",
-            "%", "Points"])
-        # Print the moderator's overview in the given time period
-        for key, value in reviewed_categories.items():
-            reviewed = value["total"]
-            accepted = value["accepted"]
-            rejected = value["rejected"]
-            points = category_points(key, reviewed)
-            table.add_row([key, reviewed, accepted, rejected, 
-                "{:.2f}%".format(percentage(accepted, rejected)), points])
-            total_points += points
-            total_accepted += accepted
-            total_rejected += rejected
-
-        table.add_row(["all", total_accepted + total_rejected, total_accepted,
-            total_rejected, "{:.2f}%".format(percentage(total_accepted,
-                total_rejected)), total_points])
-        table.align = "r"
-        table.align["Category"] = "l"
+        contributed_categories = contributor_dictionary(response, date)
+        table = contributor_table(contributed_categories)
         click.echo(table)
