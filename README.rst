@@ -33,7 +33,7 @@ Usage
     Commands:
       contributions
       moderators
-      points         Takes a given date and account name and...
+      performance
       sponsors
       stats
 
