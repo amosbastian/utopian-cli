@@ -361,17 +361,22 @@ def moderator_details(authors, limit):
 
 @cli.command()
 @click.argument("account", type=str)
-@click.option("--date", type=DATE)
-@click.option("--days", type=int)
+@click.option("--date", type=DATE,
+    help="See performance for the time period [NOW] - [DATE]")
+@click.option("--days", type=int,
+    help="See performance for the last N days.")
 @click.option("--contributor", "account_type", flag_value="contributor",
-    default=True)
-@click.option("--moderator", "account_type", flag_value="moderator")
-@click.option("--details", is_flag=True)
-@click.option("--limit", default=10)
+    default=True, help="See performance as a contributor.")
+@click.option("--moderator", "account_type", flag_value="moderator",
+    help="See performance as a moderator.")
+@click.option("--details", is_flag=True,
+    help="See more details about who you have reviewed/has reviewed you.")
+@click.option("--limit", default=10,
+    help="Limit the --details table to the top N authors/moderators.")
 def performance(account_type, account, date, days, details, limit):
     """
-    Takes a given date and account name and analyses the account's reviewed
-    contributions from now until the given date.
+    Takes a given account and either shows the account's performance as a 
+    contributor or as a moderator (if applicable) in a given time period.
     """
     if (date and days) or (not date and not days):
         click.echo("Choose either an amount of days or a specific date.")
