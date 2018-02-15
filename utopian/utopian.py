@@ -200,9 +200,13 @@ def contributor_dictionary(response, date):
         if date < parse(contribution["created"]):
             moderator = contribution["moderator"]
             category = contribution["json_metadata"]["type"]
-            reward = float(contribution["pending_payout_value"].split(" ")[0])
+            reward = round(
+                float(contribution["pending_payout_value"].split(" ")[0]))
             if reward == 0:
-                reward = float(contribution["total_payout_value"].split(" ")[0])
+                author = float(contribution["total_payout_value"].split(" ")[0])
+                curator = float(
+                    contribution["curator_payout_value"].split(" ")[0])
+                reward = round(author + curator)
             contributed_categories.setdefault(category, {
                     "accepted" : 0,
                     "rejected" : 0,
@@ -292,9 +296,10 @@ def contributor_table(contributed_categories):
         reward = value["reward"]
         rejected = value["rejected"]
         accepted_pct = "{}%".format(percentage(accepted, rejected))
-        reward = "{}$".format(reward)
+        post_reward = "{}$".format(reward)
 
-        table.add_row([key, reviewed, accepted, rejected, accepted_pct,reward])
+        table.add_row([key, reviewed, accepted, rejected, accepted_pct,
+            post_reward])
         total_accepted += accepted
         total_reward += reward
         total_rejected += rejected
