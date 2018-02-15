@@ -17,7 +17,7 @@ The recommended way to install utopian-cli is via `pip`
 
 .. code-block:: bash
     
-    $ pip3 install utopian
+    $ pip install utopian
 
 -----
 Usage
