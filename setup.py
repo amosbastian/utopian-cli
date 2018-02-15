@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
 
-requirements = ["Click", "requests", "python-dateutil"]
+requirements = ["Click", "requests", "python-dateutil", "prettytable"]
 
 setup(
     name="utopian",
-    version="0.2.1",
+    version="0.3.0",
     description="A CLI for the Utopian.io API.",
     license="MIT",
     author="amosbastian",
