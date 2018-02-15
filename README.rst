@@ -89,10 +89,18 @@ Points
  
 .. code-block::
  
-    Usage: utopian points [OPTIONS] DATE ACCOUNT
+    Usage: utopian performance [OPTIONS] ACCOUNT
 
-      Takes a given date and account name and analyses the account's reviewed
-      contributions from now until the given date.
+      Takes a given account and either shows the account's performance as a
+      contributor or as a moderator (if applicable) in a given time period.
 
     Options:
-      --help  Show this message and exit.
+      --date DATE      See performance for the time period [NOW] - [DATE]
+      --days INTEGER   See performance for the last N days.
+      --contributor    See performance as a contributor.
+      --moderator      See performance as a moderator.
+      --details        See more details about who you have reviewed/has reviewed
+                       you.
+      --limit INTEGER  Limit the --details table to the top N authors/moderators.
+      --help           Show this message and exit.
+
