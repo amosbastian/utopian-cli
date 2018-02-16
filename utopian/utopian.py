@@ -462,6 +462,13 @@ def filter_by_author(contributions, authors):
             filtered_contributions.append(contribution)
     return filtered_contributions
 
+def filter_by_category(contributions, categories):
+    filtered_contributions = []
+    for contribution in contributions:
+        if contribution["json_metadata"]["type"] in categories:
+            filtered_contributions.append(contribution)
+    return filtered_contributions
+
 @cli.command()
 @click.argument("repository", type=str)
 @click.option("--date", type=DATE,
@@ -479,7 +486,13 @@ def filter_by_author(contributions, authors):
 @click.option("--sort", default="total", help="Value to sort the table by.",
     type=click.Choice(["total", "accepted", "rejected"]))
 @click.option("--author", "-a", type=str, multiple=True)
-def project(account_type, author, date, days, details, limit, repository, sort):
+@click.option("--category", "-c", type=click.Choice(["all", "blog", "ideas", 
+    "sub-projects", "development", "bug-hunting", "translations", "graphics",
+    "analysis", "social", "documentation", "tutorials", "video-tutorials",
+    "copywriting"]), multiple=True)
+def project(account_type, author, category, date, days, details, limit,
+    repository, sort):
+
     date = date_validator(date, days)
     if not date:
         return
@@ -521,6 +534,8 @@ def project(account_type, author, date, days, details, limit, repository, sort):
             all_contributions.extend(accepted)
         if author:
             all_contributions = filter_by_author(all_contributions, author)
+        if category:
+            all_contributions = filter_by_category(all_contributions, category)
         project_categories, authors = project_dictionary(all_contributions,
             date)
         if not details:
