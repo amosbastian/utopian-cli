@@ -197,6 +197,8 @@ def contributor_dictionary(response, date):
     contributed_categories = {}
     moderators = {}
     for contribution in response:
+        if not "moderator" in contribution.keys():
+            continue
         if date < parse(contribution["created"]):
             moderator = contribution["moderator"]
             category = contribution["json_metadata"]["type"]
