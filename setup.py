@@ -4,7 +4,7 @@ requirements = ["Click", "requests", "python-dateutil", "prettytable"]
 
 setup(
     name="utopian",
-    version="0.3.1",
+    version="0.4.0",
     description="A CLI for the Utopian.io API.",
     license="MIT",
     author="amosbastian",
