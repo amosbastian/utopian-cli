@@ -339,12 +339,12 @@ def contributor_details(moderators, limit):
     table.align["Moderator"] = "l"
     return table
 
-def moderator_details(authors, limit):
+def moderator_details(authors, limit, sort):
     total_accepted = 0
     total_rejected = 0
 
     table = PrettyTable(["Author", "Reviewed", "Accepted", "Rejected", "%"])
-    for key, value in sorted(authors.items(), key=lambda x: x[1]["total"],
+    for key, value in sorted(authors.items(), key=lambda x: x[1][sort],
         reverse=True)[:limit]:
         accepted = value["accepted"]
         rejected = value["rejected"]
@@ -360,6 +360,29 @@ def moderator_details(authors, limit):
 
     table.align = "r"
     table.align["Author"] = "l"
+    return table
+
+def details_table(users, limit, sort, column):
+    total_accepted = 0
+    total_rejected = 0
+
+    table = PrettyTable([column, "Reviewed", "Accepted", "Rejected", "%"])
+    for key, value in sorted(users.items(), key=lambda x: x[1][sort],
+        reverse=True)[:limit]:
+        accepted = value["accepted"]
+        rejected = value["rejected"]
+        reviewed = accepted + rejected
+        accepted_pct = "{}%".format(percentage(accepted, rejected))
+        table.add_row([key, reviewed, accepted, rejected, accepted_pct])
+        total_accepted += accepted
+        total_rejected += rejected
+
+    accepted_pct = "{}%".format(percentage(total_accepted, total_rejected))
+    table.add_row(["all", total_accepted + total_rejected, total_accepted,
+        total_rejected, accepted_pct])
+
+    table.align = "r"
+    table.align[column] = "l"
     return table
 
 def date_validator(date, days):
@@ -390,7 +413,9 @@ def date_validator(date, days):
     help="See more details about who you have reviewed/has reviewed you.")
 @click.option("--limit", default=10,
     help="Limit the --details table to the top N authors/moderators.")
-def performance(account_type, account, date, days, details, limit):
+@click.option("--sort", default="total", help="Value to sort the table by.",
+    type=click.Choice(["total", "accepted", "rejected"]))
+def performance(account_type, account, date, days, details, limit, sort):
     """
     Takes a given account and either shows the account's performance as a 
     contributor or as a moderator (if applicable) in a given time period.
@@ -433,7 +458,7 @@ def performance(account_type, account, date, days, details, limit):
         if not details:
             table = contributor_table(contributed_categories)
         else:
-            table = contributor_details(moderators, limit)
+            table = details_table(moderators, limit, sort, "Author")
 
         click.echo(table)
 
@@ -491,7 +516,9 @@ def project_dictionary(contributions, date):
     help="See more details about who you have reviewed/has reviewed you.")
 @click.option("--limit", default=10,
     help="Limit the --details table to the top N authors/moderators.")
-def project(account_type, date, days, details, limit, repository):
+@click.option("--sort", default="total", help="Value to sort the table by.",
+    type=click.Choice(["total", "accepted", "rejected"]))
+def project(account_type, date, days, details, limit, repository, sort):
     date = date_validator(date, days)
     if not date:
         return
@@ -536,5 +563,5 @@ def project(account_type, date, days, details, limit, repository):
         if not details:
             table = contributor_table(project_categories)
         else:
-            table = moderator_details(authors, limit)
+            table = details_table(authors, limit, sort, "Author")
         click.echo(table)
