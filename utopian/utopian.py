@@ -168,7 +168,7 @@ def is_moderator(account):
     Function that checks if the given account is a moderator or not.
     """
     moderators = requests.get("{}moderators".format(UTOPIAN_API)).json()
-    return account in [m["account"] for m in moderators["results"]]
+    return set(account).issubset([m["account"] for m in moderators["results"]])
 
 def category_points(category, reviewed):
     """
@@ -352,8 +352,28 @@ def date_validator(date, days):
         date = datetime.datetime.now() - datetime.timedelta(days=days)
         return date
 
+def filter_by_author(contributions, authors):
+    """
+    Filter the given contributions by the given authors.
+    """
+    filtered_contributions = []
+    for contribution in contributions:
+        if contribution["author"] in authors:
+            filtered_contributions.append(contribution)
+    return filtered_contributions
+
+def filter_by_category(contributions, categories):
+    """
+    Filter the given contributions by the given categories.
+    """
+    filtered_contributions = []
+    for contribution in contributions:
+        if contribution["json_metadata"]["type"] in categories:
+            filtered_contributions.append(contribution)
+    return filtered_contributions
+
 @cli.command()
-@click.argument("account", type=str)
+@click.option("--account", "-a", type=str, multiple=True, required=True)
 @click.option("--date", type=DATE,
     help="See performance for the time period [NOW] - [DATE]")
 @click.option("--days", type=int,
@@ -378,35 +398,44 @@ def performance(account_type, account, date, days, details, limit, sort):
         return
 
     if account_type == "moderator" and not is_moderator(account):
-        click.echo("{} is not a moderator".format(account))
+        if len(account) == 1:
+            click.echo("{} is not a moderator.".format("".join(account)))
+        else:
+            click.echo("{} aren't all moderators.".format(", ".join(account)))
         return
     elif account_type == "moderator" and is_moderator(account):
-        total = requests.get(build_url("posts",
-            {"moderator" : account, "limit" : 1})).json()["total"]
-        response = requests.get(build_url("posts", {"moderator" : account,
-            "limit" : total})).json()["results"]
+        responses = []
+        for a in account:
+            total = requests.get(build_url("posts",
+                {"moderator" : a, "limit" : 1})).json()["total"]
+            response = requests.get(build_url("posts", {"moderator" : a,
+                "limit" : total})).json()["results"]
+            responses.extend(response)
         
         # Loop over all reviewed contributions and build dictionary
-        reviewed_categories, authors = moderator_dictionary(response, date)
+        reviewed_categories, authors = moderator_dictionary(responses, date)
         if not details:
             table = moderator_table(reviewed_categories)
         else:
             table = details_table(authors, limit, sort, "Author")
         click.echo(table)
     elif account_type == "contributor":
-        total_accepted = requests.get(build_url("posts", {"section" : "author", 
-            "limit" : 1, "author" : account})).json()["total"]
-        accepted = requests.get(build_url("posts", {"section" : "author", 
-            "limit" : total_accepted, "author" : account})).json()["results"]
-        total_rejected = requests.get(build_url("posts", {"section" : "author", 
-            "limit" : 1, "author" : account, "status" : "flagged"}
-            )).json()["total"]
-        rejected = requests.get(build_url("posts", {"section" : "author", 
-            "limit" : total_accepted, "author" : account, "status" : "flagged"}
-            )).json()["results"]
-
-        accepted.extend(rejected)
-        contributed_categories, moderators = contributor_dictionary(accepted,
+        responses = []
+        for a in account:
+            total_accepted = requests.get(build_url("posts", {"section" : "author", 
+                "limit" : 1, "author" : a})).json()["total"]
+            accepted = requests.get(build_url("posts", {"section" : "author", 
+                "limit" : total_accepted, "author" : a})).json()["results"]
+            total_rejected = requests.get(build_url("posts", {"section" : "author", 
+                "limit" : 1, "author" : a, "status" : "flagged"}
+                )).json()["total"]
+            rejected = requests.get(build_url("posts", {"section" : "author", 
+                "limit" : total_accepted, "author" : a, "status" : "flagged"}
+                )).json()["results"]
+            responses.extend(rejected)
+            responses.extend(accepted)
+        
+        contributed_categories, moderators = contributor_dictionary(responses,
             date)
         if not details:
             table = contributor_table(contributed_categories)
@@ -454,20 +483,6 @@ def project_dictionary(contributions, date):
             reviewed_categories[category]["reward"] += reward
             authors[author]["total"] += 1
     return reviewed_categories, authors
-
-def filter_by_author(contributions, authors):
-    filtered_contributions = []
-    for contribution in contributions:
-        if contribution["author"] in authors:
-            filtered_contributions.append(contribution)
-    return filtered_contributions
-
-def filter_by_category(contributions, categories):
-    filtered_contributions = []
-    for contribution in contributions:
-        if contribution["json_metadata"]["type"] in categories:
-            filtered_contributions.append(contribution)
-    return filtered_contributions
 
 @cli.command()
 @click.argument("repository", type=str)
