@@ -455,10 +455,10 @@ def project_dictionary(contributions, date):
             authors[author]["total"] += 1
     return reviewed_categories, authors
 
-def filter_by_author(contributions, author):
+def filter_by_author(contributions, authors):
     filtered_contributions = []
     for contribution in contributions:
-        if contribution["author"] == author:
+        if contribution["author"] in authors:
             filtered_contributions.append(contribution)
     return filtered_contributions
 
@@ -478,7 +478,7 @@ def filter_by_author(contributions, author):
     help="Limit the --details table to the top N authors/moderators.")
 @click.option("--sort", default="total", help="Value to sort the table by.",
     type=click.Choice(["total", "accepted", "rejected"]))
-@click.option("--author", type=str)
+@click.option("--author", "-a", type=str, multiple=True)
 def project(account_type, author, date, days, details, limit, repository, sort):
     date = date_validator(date, days)
     if not date:
