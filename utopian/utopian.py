@@ -11,7 +11,8 @@ try:
 except ImportError:
     from urllib.parse import urlencode
 
-API_BASE_URL = "https://api.utopian.io/api/"
+UTOPIAN_API = "https://api.utopian.io/api/"
+GITHUB_API = "https://api.github.com/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
 
 @click.group()
@@ -26,7 +27,7 @@ def cli():
 @click.option("--reviewed", default=0,
     help="Minimum amount of contributions reviewed.")
 def moderators(supervisor, reviewed, j, account):
-    response = requests.get("{}moderators".format(API_BASE_URL)).json()
+    response = requests.get("{}moderators".format(UTOPIAN_API)).json()
     for moderator in response["results"]:
         if moderator["total_moderated"] > reviewed:
             if supervisor:
@@ -61,7 +62,7 @@ def query_string(limit, skip, category, author, post_filter):
     return urlencode(parameters)
 
 def build_url(api, query_parameters=None):
-    URL = "{}{}/?{}".format(API_BASE_URL, api, urlencode(query_parameters))
+    URL = "{}{}/?{}".format(UTOPIAN_API, api, urlencode(query_parameters))
     return URL
 
 def build_response(limit, category, author, post_filter):
@@ -71,7 +72,7 @@ def build_response(limit, category, author, post_filter):
     skip = 0
     if limit < 1000:
         query = query_string(limit, skip, category, author, post_filter)
-        responses = requests.get("{}posts/?{}".format(API_BASE_URL,
+        responses = requests.get("{}posts/?{}".format(UTOPIAN_API,
             query)).json()["results"]
     else:
         responses = []
@@ -82,7 +83,7 @@ def build_response(limit, category, author, post_filter):
                     post_filter)
             else:
                 query = query_string(1000, skip, category, author, post_filter)
-            response = requests.get("{}posts/?{}".format(API_BASE_URL,
+            response = requests.get("{}posts/?{}".format(UTOPIAN_API,
                 query)).json()
             if response["total"] < limit:
                 limit = response["total"]
@@ -130,7 +131,7 @@ def contributions(category, limit, tags, author, reviewed, title):
         "bug-hunting", "translations", "graphics", "analysis", "social",
         "documentation", "tutorials", "video-tutorials", "copywriting"]))
 def stats(category):
-    response = requests.get("{}/stats".format(API_BASE_URL)).json()["stats"]
+    response = requests.get("{}/stats".format(UTOPIAN_API)).json()["stats"]
     if category:
         for c in response["categories"]:
             if category == c:
@@ -141,7 +142,7 @@ def stats(category):
 @click.option("--j", is_flag=True, help="Print sponsor in JSON format.")
 @click.option("--account", default="", help="Sponsor's account name.")
 def sponsors(j, account):
-    response = requests.get("{}sponsors".format(API_BASE_URL)).json()
+    response = requests.get("{}sponsors".format(UTOPIAN_API)).json()
     for sponsor in response["results"]:
         if j and account in sponsor["account"]:
             click.echo(json.dumps(sponsor, indent=4, sort_keys=True))
@@ -166,7 +167,7 @@ def is_moderator(account):
     """
     Function that checks if the given account is a moderator or not.
     """
-    moderators = requests.get("{}moderators".format(API_BASE_URL)).json()
+    moderators = requests.get("{}moderators".format(UTOPIAN_API)).json()
     return account in [m["account"] for m in moderators["results"]]
 
 def category_points(category, reviewed):
@@ -361,6 +362,20 @@ def moderator_details(authors, limit):
     table.align["Author"] = "l"
     return table
 
+def date_validator(date, days):
+    if (date and days) or (not date and not days):
+        click.echo("Choose either an amount of days or a specific date.")
+        return
+    if date and datetime.datetime.now() < date:
+        click.echo("Argument date must be in the past...")
+        return
+    if days and days < 1:
+        click.echo("Unfortunately we can't look into the future...")
+    if not date and days:
+        date = datetime.datetime.now() - datetime.timedelta(days=days)
+        return date
+
+
 @cli.command()
 @click.argument("account", type=str)
 @click.option("--date", type=DATE,
@@ -380,14 +395,9 @@ def performance(account_type, account, date, days, details, limit):
     Takes a given account and either shows the account's performance as a 
     contributor or as a moderator (if applicable) in a given time period.
     """
-    if (date and days) or (not date and not days):
-        click.echo("Choose either an amount of days or a specific date.")
+    date = date_validator(date, days)
+    if not date:
         return
-    if date and datetime.datetime.now() < date:
-        click.echo("Argument date must be in the past...")
-        return
-    if not date and days:
-        date = datetime.datetime.now() - datetime.timedelta(days=days)
 
     if account_type == "moderator" and not is_moderator(account):
         click.echo("{} is not a moderator".format(account))
@@ -425,4 +435,106 @@ def performance(account_type, account, date, days, details, limit):
         else:
             table = contributor_details(moderators, limit)
 
+        click.echo(table)
+
+def project_dictionary(contributions, date):
+    reviewed_categories = {}
+    authors = {}
+    for contribution in contributions:
+        if not "moderator" in contribution.keys():
+            continue
+        if date < parse(contribution["created"]):
+            author = contribution["author"]
+            category = contribution["json_metadata"]["type"]
+            reward = round(
+                float(contribution["pending_payout_value"].split(" ")[0]))
+            if reward == 0:
+                author_reward = float(
+                    contribution["total_payout_value"].split(" ")[0])
+                curator_reward = float(
+                    contribution["curator_payout_value"].split(" ")[0])
+                reward = round(author_reward + curator_reward)
+            reviewed_categories.setdefault(category, {
+                    "accepted" : 0,
+                    "rejected" : 0,
+                    "total" : 0,
+                    "reward" : 0
+                })
+            authors.setdefault(author, {
+                    "accepted" : 0,
+                    "rejected" : 0,
+                    "total" : 0
+                })
+            if contribution["flagged"]:
+                reviewed_categories[category]["rejected"] += 1
+                authors[author]["rejected"] += 1
+            else:
+                reviewed_categories[category]["accepted"] += 1
+                authors[author]["accepted"] += 1
+
+            reviewed_categories[category]["total"] += 1
+            reviewed_categories[category]["reward"] += reward
+            authors[author]["total"] += 1
+    return reviewed_categories, authors
+
+@cli.command()
+@click.argument("repository", type=str)
+@click.option("--date", type=DATE,
+    help="See performance for the time period [NOW] - [DATE]")
+@click.option("--days", type=int,
+    help="See performance for the last N days.")
+@click.option("--contributor", "account_type", flag_value="contributor",
+    default=True, help="See performance as a contributor.")
+@click.option("--moderator", "account_type", flag_value="moderator",
+    help="See performance as a moderator.")
+@click.option("--details", is_flag=True,
+    help="See more details about who you have reviewed/has reviewed you.")
+@click.option("--limit", default=10,
+    help="Limit the --details table to the top N authors/moderators.")
+def project(account_type, date, days, details, limit, repository):
+    date = date_validator(date, days)
+    if not date:
+        return
+    response = requests.get("{}repos/{}".format(GITHUB_API, repository)).json()
+    if "id" in response.keys():
+        repository_id = response["id"]
+    else:
+        click.echo("Please enter a valid GitHub repository.")
+        return
+
+    query_parameters = {
+        "section" : "project",
+        "platform" : "github",
+        "projectId" : repository_id,
+        "limit" : 1,
+        "status" : "any"
+    }
+    all_contributions = []
+
+    total_accepted = requests.get(build_url("posts",
+        query_parameters)).json()["total"]
+    query_parameters["status"] = "flagged"
+    total_rejected = requests.get(build_url("posts",
+        query_parameters)).json()["total"]
+    if total_accepted + total_rejected == 0:
+        click.echo("No contributions have been made to this project...")
+        return
+    else:
+        if total_rejected > 0:
+            query_parameters["limit"] = total_rejected
+            rejected = requests.get(build_url("posts",
+                query_parameters)).json()["results"]
+            all_contributions.extend(rejected)
+        if total_accepted > 0:
+            query_parameters["limit"] = total_accepted
+            query_parameters["status"] = "any"
+            accepted = requests.get(build_url("posts",
+                query_parameters)).json()["results"]
+            all_contributions.extend(accepted)
+        project_categories, authors = project_dictionary(all_contributions,
+            date)
+        if not details:
+            table = contributor_table(project_categories)
+        else:
+            table = moderator_details(authors, limit)
         click.echo(table)
