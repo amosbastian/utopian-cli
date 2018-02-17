@@ -14,6 +14,7 @@ except ImportError:
 UTOPIAN_API = "https://api.utopian.io/api/"
 GITHUB_API = "https://api.github.com/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
+UTOPIAN_TEAM = "https://utopian.team/users/team.json"
 
 @click.group()
 def cli():
@@ -165,10 +166,18 @@ DATE = Date()
 
 def is_moderator(account):
     """
-    Function that checks if the given account is a moderator or not.
+    Function that checks if the given account(s) are moderators or not.
     """
     moderators = requests.get("{}moderators".format(UTOPIAN_API)).json()
     return set(account).issubset([m["account"] for m in moderators["results"]])
+
+def is_supervisor(account):
+    """
+    Function that checks if the given account(s) are supervisors or not.
+    """
+    moderators = requests.get("{}moderators".format(UTOPIAN_API)).json()
+    return set(account).issubset([m["account"] for m in moderators["results"]
+        if "supermoderator" in m.keys()])
 
 def category_points(category, reviewed):
     """
@@ -372,6 +381,14 @@ def filter_by_category(contributions, categories):
             filtered_contributions.append(contribution)
     return filtered_contributions
 
+def supervisor_team(account):
+    accounts = []
+    teams = requests.get(UTOPIAN_TEAM).json()["results"]
+    for a in account:
+        for member in teams[a]["members"]:
+            accounts.append(member["account"])
+    return tuple(accounts)
+
 @cli.command()
 @click.option("--account", "-a", type=str, multiple=True, required=True)
 @click.option("--date", type=DATE,
@@ -382,6 +399,8 @@ def filter_by_category(contributions, categories):
     default=True, help="See performance as a contributor.")
 @click.option("--moderator", "account_type", flag_value="moderator",
     help="See performance as a moderator.")
+@click.option("--supervisor", "account_type", flag_value="supervisor",
+    help="See performance of a supervisor's team.")
 @click.option("--details", is_flag=True,
     help="See more details about who you have reviewed/has reviewed you.")
 @click.option("--limit", default=10,
@@ -403,14 +422,23 @@ def performance(account_type, account, date, days, details, limit, sort):
         else:
             click.echo("{} aren't all moderators.".format(", ".join(account)))
         return
-    elif account_type == "moderator" and is_moderator(account):
+    elif account_type == "supervisor" and not is_supervisor(account):
+        if len(account) == 1:
+            click.echo("{} is not a supervisor.".format("".join(account)))
+        else:
+            click.echo("{} aren't all supervisors.".format(", ".join(account)))
+    elif ((account_type == "moderator" and is_moderator(account)) or
+        (account_type == "supervisor" and is_supervisor(account))):
+        if account_type == "supervisor":
+            account = supervisor_team(account)
         responses = []
-        for a in account:
-            total = requests.get(build_url("posts",
-                {"moderator" : a, "limit" : 1})).json()["total"]
-            response = requests.get(build_url("posts", {"moderator" : a,
-                "limit" : total})).json()["results"]
-            responses.extend(response)
+        with click.progressbar(account) as bar:
+            for user in bar:
+                total = requests.get(build_url("posts",
+                    {"moderator" : user, "limit" : 1})).json()["total"]
+                response = requests.get(build_url("posts", {"moderator" : user,
+                    "limit" : total})).json()["results"]
+                responses.extend(response)
         
         # Loop over all reviewed contributions and build dictionary
         reviewed_categories, authors = moderator_dictionary(responses, date)
@@ -443,6 +471,7 @@ def performance(account_type, account, date, days, details, limit, sort):
             table = details_table(moderators, limit, sort, "Moderator")
 
         click.echo(table)
+
 
 def project_dictionary(contributions, date):
     reviewed_categories = {}
