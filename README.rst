@@ -89,18 +89,45 @@ Performance
  
 .. code-block::
  
-    Usage: utopian performance [OPTIONS] ACCOUNT
+    Usage: utopian performance [OPTIONS]
 
       Takes a given account and either shows the account's performance as a
       contributor or as a moderator (if applicable) in a given time period.
 
     Options:
-      --date DATE      See performance for the time period [NOW] - [DATE]
-      --days INTEGER   See performance for the last N days.
-      --contributor    See performance as a contributor.
-      --moderator      See performance as a moderator.
-      --details        See more details about who you have reviewed/has reviewed
-                       you.
-      --limit INTEGER  Limit the --details table to the top N authors/moderators.
-      --help           Show this message and exit.
+      -a, --account TEXT              [required]
+      --date DATE                     See performance for the time period [NOW] -
+                                      [DATE]
+      --days INTEGER                  See performance for the last N days.
+      --contributor                   See performance as a contributor.
+      --moderator                     See performance as a moderator.
+      --supervisor                    See performance of a supervisor's team.
+      --details                       See more details about who you have
+                                      reviewed/has reviewed you.
+      --limit INTEGER                 Limit the --details table to the top N
+                                      authors/moderators.
+      --sort [total|accepted|rejected]
+                                      Value to sort the table by.
+      --help                          Show this message and exit.
+
+Project
+-------
+
+.. code-block::
+
+    Usage: utopian project [OPTIONS] REPOSITORY
+
+    Options:
+      --date DATE                     See performance for the time period [NOW] -
+                                      [DATE]
+      --days INTEGER                  See performance for the last N days.
+      --details                       See more details about who you have
+                                      reviewed/has reviewed you.
+      --limit INTEGER                 Limit the --details table to the top N
+                                      authors/moderators.
+      --sort [total|accepted|rejected]
+                                      Value to sort the table by.
+      -a, --author TEXT               Author to filter the table by.
+      -c, --category [all|blog|ideas|sub-projects|development|bug-hunting|translations|graphics|analysis|social|documentation|tutorials|video-tutorials|copywriting]
+      --help                          Show this message and exit.
 
