@@ -17,7 +17,7 @@ The recommended way to install utopian-cli is via `pip`
 
 .. code-block:: bash
     
-    $ pip3 install utopian
+    $ pip install utopian
 
 -----
 Usage
@@ -33,7 +33,7 @@ Usage
     Commands:
       contributions
       moderators
-      points         Takes a given date and account name and...
+      performance
       sponsors
       stats
 
@@ -84,15 +84,50 @@ Sponsors
       --account TEXT  Sponsor's account name.
       --help          Show this message and exit.
       
-Points
-------
+Performance
+-----------
  
 .. code-block::
  
-    Usage: utopian points [OPTIONS] DATE ACCOUNT
+    Usage: utopian performance [OPTIONS]
 
-      Takes a given date and account name and analyses the account's reviewed
-      contributions from now until the given date.
+      Takes a given account and either shows the account's performance as a
+      contributor or as a moderator (if applicable) in a given time period.
 
     Options:
-      --help  Show this message and exit.
+      -a, --account TEXT              [required]
+      --date DATE                     See performance for the time period [NOW] -
+                                      [DATE]
+      --days INTEGER                  See performance for the last N days.
+      --contributor                   See performance as a contributor.
+      --moderator                     See performance as a moderator.
+      --supervisor                    See performance of a supervisor's team.
+      --details                       See more details about who you have
+                                      reviewed/has reviewed you.
+      --limit INTEGER                 Limit the --details table to the top N
+                                      authors/moderators.
+      --sort [total|accepted|rejected]
+                                      Value to sort the table by.
+      --help                          Show this message and exit.
+
+Project
+-------
+
+.. code-block::
+
+    Usage: utopian project [OPTIONS] REPOSITORY
+
+    Options:
+      --date DATE                     See performance for the time period [NOW] -
+                                      [DATE]
+      --days INTEGER                  See performance for the last N days.
+      --details                       See more details about who you have
+                                      reviewed/has reviewed you.
+      --limit INTEGER                 Limit the --details table to the top N
+                                      authors/moderators.
+      --sort [total|accepted|rejected]
+                                      Value to sort the table by.
+      -a, --author TEXT               Author to filter the table by.
+      -c, --category [all|blog|ideas|sub-projects|development|bug-hunting|translations|graphics|analysis|social|documentation|tutorials|video-tutorials|copywriting]
+      --help                          Show this message and exit.
+
