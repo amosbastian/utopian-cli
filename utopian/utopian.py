@@ -519,22 +519,19 @@ def project_dictionary(contributions, date):
     help="See performance for the time period [NOW] - [DATE]")
 @click.option("--days", type=int,
     help="See performance for the last N days.")
-@click.option("--contributor", "account_type", flag_value="contributor",
-    default=True, help="See performance as a contributor.")
-@click.option("--moderator", "account_type", flag_value="moderator",
-    help="See performance as a moderator.")
 @click.option("--details", is_flag=True,
     help="See more details about who you have reviewed/has reviewed you.")
 @click.option("--limit", default=10,
     help="Limit the --details table to the top N authors/moderators.")
 @click.option("--sort", default="total", help="Value to sort the table by.",
     type=click.Choice(["total", "accepted", "rejected"]))
-@click.option("--author", "-a", type=str, multiple=True)
+@click.option("--author", "-a", type=str, multiple=True,
+    help="Author to filter the table by.")
 @click.option("--category", "-c", type=click.Choice(["all", "blog", "ideas", 
     "sub-projects", "development", "bug-hunting", "translations", "graphics",
     "analysis", "social", "documentation", "tutorials", "video-tutorials",
     "copywriting"]), multiple=True)
-def project(account_type, author, category, date, days, details, limit,
+def project(author, category, date, days, details, limit,
     repository, sort):
 
     date = date_validator(date, days)
