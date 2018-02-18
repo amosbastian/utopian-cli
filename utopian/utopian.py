@@ -360,6 +360,8 @@ def date_validator(date, days):
     if not date and days:
         date = datetime.datetime.now() - datetime.timedelta(days=days)
         return date
+    else:
+        return date
 
 def filter_by_author(contributions, authors):
     """
@@ -389,6 +391,18 @@ def supervisor_team(account):
             accounts.append(member["account"])
     return tuple(accounts)
 
+def build_table(categories, authors, limit, sort, column, details,
+    account_type):
+    if not details:
+        if account_type == "contributor":
+            table = contributor_table(categories)
+        else:
+            table = moderator_table(categories)
+    else:
+        table = details_table(authors, limit, sort, column)
+
+    click.echo(table)
+
 @cli.command()
 @click.option("--account", "-a", type=str, multiple=True, required=True)
 @click.option("--date", type=DATE,
@@ -407,7 +421,9 @@ def supervisor_team(account):
     help="Limit the --details table to the top N authors/moderators.")
 @click.option("--sort", default="total", help="Value to sort the table by.",
     type=click.Choice(["total", "accepted", "rejected"]))
-def performance(account_type, account, date, days, details, limit, sort):
+@click.option("--individual", is_flag=True, default=False)
+def performance(account_type, account, date, days, details, individual, limit,
+    sort):
     """
     Takes a given account and either shows the account's performance as a 
     contributor or as a moderator (if applicable) in a given time period.
@@ -430,47 +446,55 @@ def performance(account_type, account, date, days, details, limit, sort):
     elif ((account_type == "moderator" and is_moderator(account)) or
         (account_type == "supervisor" and is_supervisor(account))):
         if account_type == "supervisor":
+            supervisor = account
             account = supervisor_team(account)
         responses = []
-        with click.progressbar(account) as bar:
-            for user in bar:
+        if individual:
+            click.echo("OVERVIEW OF {}'S TEAM ({} MODERATORS)".format(
+                supervisor[0].upper(), len(account)))
+            for user in account:
                 total = requests.get(build_url("posts",
                     {"moderator" : user, "limit" : 1})).json()["total"]
                 response = requests.get(build_url("posts", {"moderator" : user,
                     "limit" : total})).json()["results"]
-                responses.extend(response)
-        
-        # Loop over all reviewed contributions and build dictionary
-        reviewed_categories, authors = moderator_dictionary(responses, date)
-        if not details:
-            table = moderator_table(reviewed_categories)
+                r_cats, authors = moderator_dictionary(response, date)
+                click.echo("\n{}".format(user))
+                build_table(r_cats, authors, limit, sort, "Author", details,
+                    account_type)
+            return
         else:
-            table = details_table(authors, limit, sort, "Author")
-        click.echo(table)
+            with click.progressbar(account) as bar:
+                for user in bar:
+                    total = requests.get(build_url("posts", {
+                        "moderator" : user, "limit" : 1})).json()["total"]
+                    response = requests.get(build_url("posts", {
+                        "moderator" : user, "limit" : total})).json()["results"]
+                    responses.extend(response)
+                    
+        # Loop over all reviewed contributions and build dictionary
+        r_cats, authors = moderator_dictionary(responses, date)
+        build_table(r_cats, authors, limit, sort, "Author", details,
+            account_type)
     elif account_type == "contributor":
         responses = []
         for a in account:
-            total_accepted = requests.get(build_url("posts", {"section" : "author", 
-                "limit" : 1, "author" : a})).json()["total"]
+            total_accepted = requests.get(build_url("posts", 
+                {"section" : "author", "limit" : 1, "author" : a}
+                )).json()["total"]
             accepted = requests.get(build_url("posts", {"section" : "author", 
                 "limit" : total_accepted, "author" : a})).json()["results"]
-            total_rejected = requests.get(build_url("posts", {"section" : "author", 
-                "limit" : 1, "author" : a, "status" : "flagged"}
-                )).json()["total"]
+            total_rejected = requests.get(build_url("posts", 
+                {"section" : "author", "limit" : 1, "author" : a, 
+                "status" : "flagged"})).json()["total"]
             rejected = requests.get(build_url("posts", {"section" : "author", 
                 "limit" : total_accepted, "author" : a, "status" : "flagged"}
                 )).json()["results"]
             responses.extend(rejected)
             responses.extend(accepted)
         
-        contributed_categories, moderators = contributor_dictionary(responses,
-            date)
-        if not details:
-            table = contributor_table(contributed_categories)
-        else:
-            table = details_table(moderators, limit, sort, "Moderator")
-
-        click.echo(table)
+        c_cats, moderators = contributor_dictionary(responses, date)
+        build_table(c_cats, moderators, limit, sort, "Moderator", details,
+            account_type)
 
 
 def project_dictionary(contributions, date):
@@ -531,7 +555,8 @@ def project_dictionary(contributions, date):
     "sub-projects", "development", "bug-hunting", "translations", "graphics",
     "analysis", "social", "documentation", "tutorials", "video-tutorials",
     "copywriting"]), multiple=True)
-def project(author, category, date, days, details, limit,
+@click.option("--individual", is_flag=True, default=False)
+def project(author, category, date, days, details, limit, individual,
     repository, sort):
 
     date = date_validator(date, days)
@@ -553,34 +578,41 @@ def project(author, category, date, days, details, limit,
     }
     all_contributions = []
 
+    # Get total accepted contributions made to the project
     total_accepted = requests.get(build_url("posts",
         query_parameters)).json()["total"]
     query_parameters["status"] = "flagged"
+    # Get total rejected contributions made to the project
     total_rejected = requests.get(build_url("posts",
         query_parameters)).json()["total"]
+
     if total_accepted + total_rejected == 0:
         click.echo("No contributions have been made to this project...")
         return
     else:
         if total_rejected > 0:
+            # Change limit parameter and retrieve all rejected contributions
             query_parameters["limit"] = total_rejected
             rejected = requests.get(build_url("posts",
                 query_parameters)).json()["results"]
             all_contributions.extend(rejected)
         if total_accepted > 0:
+            # Change limit and status parameters and retrieve all accepted
+            # contributions
             query_parameters["limit"] = total_accepted
             query_parameters["status"] = "any"
             accepted = requests.get(build_url("posts",
                 query_parameters)).json()["results"]
             all_contributions.extend(accepted)
+        
+        # Filter by author or filter by category
         if author:
             all_contributions = filter_by_author(all_contributions, author)
         if category:
             all_contributions = filter_by_category(all_contributions, category)
-        project_categories, authors = project_dictionary(all_contributions,
-            date)
-        if not details:
-            table = contributor_table(project_categories)
-        else:
-            table = details_table(authors, limit, sort, "Author")
+
+        p_cats, authors = project_dictionary(all_contributions, date)
+        table = build_table(p_cats, authors, limit, sort, "Author", details,
+            "contributor")
+        
         click.echo(table)
