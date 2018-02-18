@@ -14,17 +14,33 @@ except ImportError:
 UTOPIAN_API = "https://api.utopian.io/api/"
 GITHUB_API = "https://api.github.com/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
-UTOPIAN_TEAM = "https://utopian.team/users/team.json"
 
 @click.group()
 def cli():
     pass
 
+def moderators_table(moderators):
+    table = PrettyTable(["ID", "Moderator", "Referrer", "Reviewed",
+        "% Rewards"])
+
+    for moderator in moderators:
+        if not "referrer" in moderator.keys():
+            referrer = "None"
+        else:
+            referrer = moderator["referrer"]
+
+        table.add_row([moderator["_id"], moderator["account"], referrer,
+            moderator["total_moderated"],
+            str(moderator["percentage_total_rewards_moderators"])[:3]])
+    table.align["Moderator"] = "l"
+    table.align["Referrer"] = "l"
+    click.echo(table)
+
 @cli.command()
 @click.option("--supervisor", is_flag=True,
     help="Flag for only showing supervisors.")
 @click.option("--data", is_flag=True, help="Print moderator in JSON format.")
-@click.option("--account", "-a", multiple=True, required=True,
+@click.option("--account", "-a", multiple=True,
     help="Specific moderator account.")
 @click.option("--reviewed", default=0,
     help="Minimum amount of contributions reviewed.")
@@ -37,11 +53,16 @@ def moderators(supervisor, reviewed, data, account):
                 if ("supermoderator" in moderator 
                     and moderator["supermoderator"] == True):
                         accounts.append(moderator)
-            elif moderator["account"] in account:
+            elif account:
+                if moderator["account"] in account:
+                    accounts.append(moderator)
+            else:
                 accounts.append(moderator)
 
     if data:
         click.echo(json.dumps(accounts, indent=4, sort_keys=True))
+    else:
+        moderators_table(accounts)
 
 def query_string(limit, skip, category, author, post_filter):
     """
@@ -382,10 +403,11 @@ def filter_by_category(contributions, categories):
 
 def supervisor_team(account):
     accounts = []
-    teams = requests.get(UTOPIAN_TEAM).json()["results"]
-    for a in account:
-        for member in teams[a]["members"]:
-            accounts.append(member["account"])
+    response = requests.get("{}moderators".format(UTOPIAN_API)).json()
+    for moderator in response["results"]:
+        if "referrer" in moderator.keys():
+            if moderator["referrer"] in account:
+                accounts.append(moderator["account"])
     return tuple(accounts)
 
 def build_table(categories, authors, limit, sort, column, details,
