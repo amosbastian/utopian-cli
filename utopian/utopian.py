@@ -14,7 +14,6 @@ except ImportError:
 UTOPIAN_API = "https://api.utopian.io/api/"
 GITHUB_API = "https://api.github.com/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
-UTOPIAN_TEAM = "https://utopian.team/users/team.json"
 
 @click.group()
 def cli():
@@ -383,10 +382,11 @@ def filter_by_category(contributions, categories):
 
 def supervisor_team(account):
     accounts = []
-    teams = requests.get(UTOPIAN_TEAM).json()["results"]
-    for a in account:
-        for member in teams[a]["members"]:
-            accounts.append(member["account"])
+    response = requests.get("{}moderators".format(UTOPIAN_API)).json()
+    for moderator in response["results"]:
+        if "referrer" in moderator.keys():
+            if moderator["referrer"] in account:
+                accounts.append(moderator["account"])
     return tuple(accounts)
 
 @cli.command()
