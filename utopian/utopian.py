@@ -23,28 +23,25 @@ def cli():
 @cli.command()
 @click.option("--supervisor", is_flag=True,
     help="Flag for only showing supervisors.")
-@click.option("--j", is_flag=True, help="Print moderator in JSON format.")
-@click.option("--account", default="", help="Specific moderator account.")
+@click.option("--data", is_flag=True, help="Print moderator in JSON format.")
+@click.option("--account", "-a", multiple=True, required=True,
+    help="Specific moderator account.")
 @click.option("--reviewed", default=0,
     help="Minimum amount of contributions reviewed.")
-def moderators(supervisor, reviewed, j, account):
+def moderators(supervisor, reviewed, data, account):
+    accounts = []
     response = requests.get("{}moderators".format(UTOPIAN_API)).json()
     for moderator in response["results"]:
         if moderator["total_moderated"] > reviewed:
             if supervisor:
                 if ("supermoderator" in moderator 
                     and moderator["supermoderator"] == True):
-                    if j:
-                        click.echo(json.dumps(moderator, indent=4,
-                            sort_keys=True))
-                    else:
-                        click.echo(moderator["account"])
-            elif account in moderator["account"]:
-                if j:
-                    click.echo(json.dumps(moderator, indent=4,
-                        sort_keys=True))
-                else:
-                    click.echo(moderator["account"])
+                        accounts.append(moderator)
+            elif moderator["account"] in account:
+                accounts.append(moderator)
+
+    if data:
+        click.echo(json.dumps(accounts, indent=4, sort_keys=True))
 
 def query_string(limit, skip, category, author, post_filter):
     """
