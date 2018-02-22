@@ -64,7 +64,49 @@ def moderators(supervisor, reviewed, data, account):
     else:
         moderators_table(accounts)
 
-def query_string(limit, skip, category, author, post_filter):
+def sponsors_table(sponsors):
+    table = PrettyTable(["ID", "Sponsor", "Witness", "%", "Shares"])
+
+    for sponsor in sponsors:
+        table.add_row([sponsor["_id"], sponsor["account"],
+            sponsor["is_witness"],
+            "{}%".format(str(sponsor["percentage_total_vesting_shares"])[:4]),
+            sponsor["vesting_shares"]])
+    
+    table.align["Sponsor"] = "l"
+    table.align["Witness"] = "l"
+    table.align["Shares"] = "r"
+    click.echo(table)
+
+@cli.command()
+@click.option("--data", is_flag=True, help="Print sponsor in JSON format.")
+@click.option("--account", "-a", multiple=True, help="Sponsor's account name.")
+@click.option("--witness", is_flag=True,
+    help="Sort sponsors by sponsors that are witnesses.")
+@click.option("--not-witness", is_flag=True,
+    help="Sort sponsors by sponsors that are witnesses.")
+def sponsors(data, account, witness, not_witness):
+    accounts = []
+    response = requests.get("{}sponsors".format(UTOPIAN_API)).json()
+    for sponsor in response["results"]:
+        if account:
+            if sponsor["account"] in account:
+                accounts.append(sponsor)
+        elif witness:
+            if sponsor["is_witness"]:
+                accounts.append(sponsor)
+        elif not_witness:
+            if not sponsor["is_witness"]:
+                accounts.append(sponsor)
+        else:
+            accounts.append(sponsor)
+    if data:
+        click.echo(json.dumps(accounts, indent=4, sort_keys=True))
+    else:
+        sponsors_table(accounts)
+
+def query_string(limit, skip, category, author, post_filter, status,
+    similarity):
     """
     Returns a query string created from the given query parameters.
     """
@@ -73,24 +115,29 @@ def query_string(limit, skip, category, author, post_filter):
         "skip" : skip,
         "section" : "all",
         "type" : category,
-        "filterBy" : post_filter
+        "filterBy" : post_filter,
+        "status" : status
     }
     if not author == "":
         parameters["author"] = author
         parameters["section"] = "author"
+    if not similarity == None:
+        parameters["bySimilarity"] = similarity
     return urlencode(parameters)
 
 def build_url(api, query_parameters=None):
     URL = "{}{}/?{}".format(UTOPIAN_API, api, urlencode(query_parameters))
     return URL
 
-def build_response(limit, category, author, post_filter):
+def build_response(limit, category, author, post_filter, status, similarity):
     """
     Returns all contributions that match the given parameters.
     """
     skip = 0
     if limit < 1000:
-        query = query_string(limit, skip, category, author, post_filter)
+        query = query_string(limit, skip, category, author, post_filter, status,
+            similarity)
+        print("{}posts/?{}".format(UTOPIAN_API,query))
         responses = requests.get("{}posts/?{}".format(UTOPIAN_API,
             query)).json()["results"]
     else:
@@ -101,7 +148,9 @@ def build_response(limit, category, author, post_filter):
                 query = query_string(remainder, skip, category, author,
                     post_filter)
             else:
-                query = query_string(1000, skip, category, author, post_filter)
+                query = query_string(1000, skip, category, author, post_filter,
+                    status, similarity)
+            print("{}posts/?{}".format(UTOPIAN_API,query))
             response = requests.get("{}posts/?{}".format(UTOPIAN_API,
                 query)).json()
             if response["total"] < limit:
@@ -121,17 +170,18 @@ def build_response(limit, category, author, post_filter):
     help="Tags to filter the contributions by.")
 @click.option("--author", default="",
     help="Username to filter the contributions by.")
-@click.option("--reviewed/--unreviewed", default=True,
-    help="Show only reviewed or unreviewed contributions.")
+@click.option("--filter_by", "-f", default="all", type=click.Choice(["all",
+    "review", "active", "inactive"]), help="Filter contribution by")
 @click.option("--title", default="",
     help="String that should be in title of the contribution.")
-def contributions(category, limit, tags, author, reviewed, title):
-    if reviewed:
-        post_filter = "any"
-    else:
-        post_filter = "review"
-
-    contributions = build_response(limit, category, author, post_filter)
+@click.option("--status", "-st", default="any", type=click.Choice(["any",
+    "pending", "reviewed"]), help="Status to filter contributions by.")
+@click.option("--similarity", "-si",
+    help="Filter contributions by similar title and body.")
+def contributions(category, limit, tags, author, filter_by, title, status,
+    similarity):
+    contributions = build_response(limit, category, author, filter_by, status,
+        similarity)
     if tags == "utopian-io":
         tags = tags.split()
     else:
@@ -145,28 +195,20 @@ def contributions(category, limit, tags, author, reviewed, title):
             click.echo(BASE_URL.format(author, permlink))
 
 @cli.command()
-@click.option("--category", default="blog", help="Contribution category.",
+@click.option("--category", "-c", default="blog", help="Contribution category.",
     type=click.Choice(["blog", "ideas", "sub-projects", "development",
         "bug-hunting", "translations", "graphics", "analysis", "social",
         "documentation", "tutorials", "video-tutorials", "copywriting"]))
 def stats(category):
+    """
+    Returns statistics about the given category in JSON format.
+    """
     response = requests.get("{}/stats".format(UTOPIAN_API)).json()["stats"]
     if category:
         for c in response["categories"]:
             if category == c:
                 click.echo(json.dumps(response["categories"][c], indent=4,
                     sort_keys=True))
-
-@cli.command()
-@click.option("--j", is_flag=True, help="Print sponsor in JSON format.")
-@click.option("--account", default="", help="Sponsor's account name.")
-def sponsors(j, account):
-    response = requests.get("{}sponsors".format(UTOPIAN_API)).json()
-    for sponsor in response["results"]:
-        if j and account in sponsor["account"]:
-            click.echo(json.dumps(sponsor, indent=4, sort_keys=True))
-        elif account in sponsor["account"]:
-            click.echo(sponsor["account"])
 
 class Date(click.ParamType):
     """
@@ -440,7 +482,7 @@ def build_table(categories, authors, limit, sort, column, details,
     help="Limit the --details table to the top N authors/moderators.")
 @click.option("--sort", default="total", help="Value to sort the table by.",
     type=click.Choice(["total", "accepted", "rejected"]))
-@click.option("--individual", is_flag=True, default=False)
+@click.option("--individual", "-i", is_flag=True, default=False)
 def performance(account_type, account, date, days, details, individual, limit,
     sort):
     """
@@ -574,7 +616,7 @@ def project_dictionary(contributions, date):
     "sub-projects", "development", "bug-hunting", "translations", "graphics",
     "analysis", "social", "documentation", "tutorials", "video-tutorials",
     "copywriting"]), multiple=True)
-@click.option("--individual", is_flag=True, default=False)
+@click.option("--individual", "-i", is_flag=True, default=False)
 def project(author, category, date, days, details, limit, individual,
     repository, sort):
 
