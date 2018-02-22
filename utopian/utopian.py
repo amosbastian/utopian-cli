@@ -195,7 +195,7 @@ def is_supervisor(account):
     """
     moderators = requests.get("{}moderators".format(UTOPIAN_API)).json()
     return set(account).issubset([m["account"] for m in moderators["results"]
-        if "supermoderator" in m.keys()])
+        if not "referrer" in m.keys()])
 
 def category_points(category, reviewed):
     """
