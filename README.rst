@@ -31,11 +31,13 @@ Usage
       --help  Show this message and exit.
 
     Commands:
-      contributions
-      moderators
-      performance
-      sponsors
-      stats
+      contributions  Get information about all contributions made...
+      moderators     Command used for printing information about...
+      performance    Takes a given account and either shows the...
+      project        Get information about the contributions made...
+      sponsors       Command used for printing information about...
+      stats          Returns statistics about the given category...
+
 
 Contributions
 -------------
@@ -44,6 +46,8 @@ Contributions
     
     Usage: utopian contributions [OPTIONS]
 
+      Get information about all contributions made to Utopian.io.
+
     Options:
       --category [all|blog|ideas|sub-projects|development|bug-hunting|translations|graphics|analysis|social|documentation|tutorials|video-tutorials|copywriting]
                                       Category of the contribution.
@@ -51,11 +55,16 @@ Contributions
                                       retrieve.
       --tags TEXT                     Tags to filter the contributions by.
       --author TEXT                   Username to filter the contributions by.
-      --reviewed / --unreviewed       Show only reviewed or unreviewed
-                                      contributions.
+      -f, --filter_by [all|review|active|inactive]
+                                      Filter contribution by
       --title TEXT                    String that should be in title of the
                                       contribution.
+      -st, --status [any|pending|reviewed]
+                                      Status to filter contributions by.
+      -si, --similarity TEXT          Filter contributions by similar title and
+                                      body.
       --help                          Show this message and exit.
+
       
 Moderators
 ----------
@@ -64,13 +73,18 @@ Moderators
 
     Usage: utopian moderators [OPTIONS]
 
+      Command used for printing information about Utopian.io moderators and
+      supervisors.
+
     Options:
-      --supervisor        Flag for only showing supervisors.
-      --j                 Print moderator in JSON format.
-      --account TEXT      Specific moderator account.
-      --reviewed INTEGER  Minimum amount of contributions reviewed.
-      --help              Show this message and exit.
-            Show this message and exit.
+      -s, --supervisor                Flag for only showing supervisors.
+      -m, --moderator                 Flag for only showing moderators.
+      --data                          Print moderator in JSON format.
+      -a, --account TEXT              Specific moderator account.
+      --reviewed INTEGER              Minimum amount of contributions reviewed.
+      -s, --sort [id|moderator|referrer|reviewed|rewards]
+                                      Column to sort the table by.
+      --help                          Show this message and exit.
 
 Sponsors
 --------
@@ -79,11 +93,19 @@ Sponsors
 
     Usage: utopian sponsors [OPTIONS]
 
+      Command used for printing information about Utopian.io sponsors.
+
     Options:
-      --j             Print sponsor in JSON format.
-      --account TEXT  Sponsor's account name.
-      --help          Show this message and exit.
-      
+      --data                          Print sponsor in JSON format.
+      -a, --account TEXT              Sponsor's account name.
+      --witness                       Sort sponsors by sponsors that are
+                                      witnesses.
+      --not-witness                   Sort sponsors by sponsors that are
+                                      witnesses.
+      -s, --sort [id|sponsor|witness|percentage|shares]
+                                      Column to sort the table by.
+      --help                          Show this message and exit.
+
 Performance
 -----------
  
@@ -108,6 +130,7 @@ Performance
                                       authors/moderators.
       --sort [total|accepted|rejected]
                                       Value to sort the table by.
+      -i, --individual
       --help                          Show this message and exit.
 
 Project
@@ -116,6 +139,9 @@ Project
 .. code-block::
 
     Usage: utopian project [OPTIONS] REPOSITORY
+
+      Get information about the contributions made to a specific project on
+      GitHub.
 
     Options:
       --date DATE                     See performance for the time period [NOW] -
@@ -129,5 +155,8 @@ Project
                                       Value to sort the table by.
       -a, --author TEXT               Author to filter the table by.
       -c, --category [all|blog|ideas|sub-projects|development|bug-hunting|translations|graphics|analysis|social|documentation|tutorials|video-tutorials|copywriting]
+                                      Category to sort the contributions by.
+      -i, --individual
       --help                          Show this message and exit.
+
 
