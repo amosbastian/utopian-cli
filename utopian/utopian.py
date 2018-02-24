@@ -200,7 +200,6 @@ def build_response(limit, category, author, post_filter, status, similarity):
     if limit < 1000:
         query = query_string(limit, skip, category, author, post_filter, status,
             similarity)
-        print("{}posts/?{}".format(UTOPIAN_API,query))
         responses = requests.get("{}posts/?{}".format(UTOPIAN_API,
             query)).json()["results"]
     else:
@@ -213,7 +212,6 @@ def build_response(limit, category, author, post_filter, status, similarity):
             else:
                 query = query_string(1000, skip, category, author, post_filter,
                     status, similarity)
-            print("{}posts/?{}".format(UTOPIAN_API,query))
             response = requests.get("{}posts/?{}".format(UTOPIAN_API,
                 query)).json()
             if response["total"] < limit:
@@ -391,7 +389,10 @@ def moderator_dictionary(response, date):
     reviewed_categories = {}
     authors = {}
     for contribution in response:
-        time_moderated = contribution["json_metadata"]["moderator"]["time"]
+        if "time" in contribution["json_metadata"]["moderator"].keys():
+            time_moderated = contribution["json_metadata"]["moderator"]["time"]
+        else:
+            time_moderated = contribution["created"]
         if date < parse(time_moderated).replace(tzinfo=None):
             author = contribution["author"]
             category = contribution["json_metadata"]["type"]
@@ -600,7 +601,6 @@ def performance(account_type, account, date, days, details, individual, limit,
     contributor or as a moderator (if applicable) in a given time period.
     """
     date = date_validator(date, days)
-    print(date)
     if not date:
         return
 
@@ -739,9 +739,7 @@ def project_dictionary(contributions, date):
     "sub-projects", "development", "bug-hunting", "translations", "graphics",
     "analysis", "social", "documentation", "tutorials", "video-tutorials",
     "copywriting"]), multiple=True)
-@click.option("--individual", "-i", is_flag=True, default=False)
-def project(author, category, date, days, details, limit, individual,
-    repository, sort):
+def project(author, category, date, days, details, limit, repository, sort):
     """
     Get information about the contributions made to a specific project on
     GitHub.
