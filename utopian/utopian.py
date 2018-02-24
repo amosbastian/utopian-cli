@@ -19,11 +19,14 @@ BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
 def cli():
     pass
 
-def moderators_table(moderators):
+def moderators_table(moderators, sort_by):
+    """
+    Creates and prints the moderator table.
+    """
     table = PrettyTable(["ID", "Moderator", "Referrer", "Reviewed",
         "% Rewards"])
 
-    for moderator in moderators:
+    for moderator in sorted(moderators, key=lambda x: x[sort_by], reverse=True):
         if not "referrer" in moderator.keys():
             referrer = "None"
         else:
@@ -34,27 +37,59 @@ def moderators_table(moderators):
             str(moderator["percentage_total_rewards_moderators"])[:3]])
     table.align["Moderator"] = "l"
     table.align["Referrer"] = "l"
+    table.align["Reviewed"] = "r"
     click.echo(table)
 
+def moderator_sort(sort):
+    """
+    Returns the actual name of the key to sort by.
+    """
+    if sort == "id":
+        return "_id"
+    elif sort == "moderator":
+        return "account"
+    elif sort == "reviewed":
+        return "total_moderated"
+    elif sort == "rewards":
+        return "percentage_total_rewards_moderators"
+    else:
+        return "referrer"
+
 @cli.command()
-@click.option("--supervisor", is_flag=True,
+@click.option("--supervisor", "-s",is_flag=True,
     help="Flag for only showing supervisors.")
-@click.option("--data", is_flag=True, help="Print moderator in JSON format.")
+@click.option("--moderator", "-m", is_flag=True,
+    help="Flag for only showing moderators.")
+@click.option("--data", is_flag=True,
+    help="Print moderator in JSON format.")
 @click.option("--account", "-a", multiple=True,
     help="Specific moderator account.")
-@click.option("--reviewed", default=0,
+@click.option("--reviewed",
+    default=0,
     help="Minimum amount of contributions reviewed.")
-def moderators(supervisor, reviewed, data, account):
+@click.option("--sort", "-s",
+    default="moderator",
+    type=click.Choice(["id", "moderator", "referrer", "reviewed", "rewards"]),
+    help="Column to sort the table by.")
+def moderators(supervisor, reviewed, data, account, moderator, sort):
+    """
+    Command used for printing information about Utopian.io moderators and
+    supervisors.
+    """
+    sort_by = moderator_sort(sort)
     accounts = []
     response = requests.get("{}moderators".format(UTOPIAN_API)).json()
     for moderator in response["results"]:
         if moderator["total_moderated"] > reviewed:
-            if supervisor:
+            if account:
+                if moderator["account"] in account:
+                    accounts.append(moderator)
+            elif supervisor:
                 if ("supermoderator" in moderator 
                     and moderator["supermoderator"] == True):
                         accounts.append(moderator)
-            elif account:
-                if moderator["account"] in account:
+            elif moderator:
+                if "referrer" in moderator:
                     accounts.append(moderator)
             else:
                 accounts.append(moderator)
@@ -62,30 +97,58 @@ def moderators(supervisor, reviewed, data, account):
     if data:
         click.echo(json.dumps(accounts, indent=4, sort_keys=True))
     else:
-        moderators_table(accounts)
+        moderators_table(accounts, sort_by)
 
-def sponsors_table(sponsors):
+def sponsors_table(sponsors, sort_by):
+    """
+    Creates and prints the sponsor table.
+    """
     table = PrettyTable(["ID", "Sponsor", "Witness", "%", "Shares"])
 
-    for sponsor in sponsors:
+    for sponsor in sorted(sponsors, key=lambda x: x[sort_by], reverse=True):
         table.add_row([sponsor["_id"], sponsor["account"],
             sponsor["is_witness"],
-            "{}%".format(str(sponsor["percentage_total_vesting_shares"])[:4]),
+            "{:.2f}%".format(sponsor["percentage_total_vesting_shares"]),
             sponsor["vesting_shares"]])
     
     table.align["Sponsor"] = "l"
     table.align["Witness"] = "l"
+    table.align["%"] = "r"
     table.align["Shares"] = "r"
     click.echo(table)
 
+def sponsor_sort(sort):
+    """
+    Returns the actual name of the key to sort by.
+    """
+    if sort == "id":
+        return "_id"
+    elif sort == "sponsor":
+        return "account"
+    elif sort == "witness":
+        return "is_witness"
+    elif sort == "percentage":
+        return "percentage_total_vesting_shares"
+    else:
+        return "vesting_shares"
+
 @cli.command()
-@click.option("--data", is_flag=True, help="Print sponsor in JSON format.")
-@click.option("--account", "-a", multiple=True, help="Sponsor's account name.")
+@click.option("--data", is_flag=True,
+    help="Print sponsor in JSON format.")
+@click.option("--account", "-a", multiple=True,
+    help="Sponsor's account name.")
 @click.option("--witness", is_flag=True,
     help="Sort sponsors by sponsors that are witnesses.")
 @click.option("--not-witness", is_flag=True,
     help="Sort sponsors by sponsors that are witnesses.")
-def sponsors(data, account, witness, not_witness):
+@click.option("--sort", "-s", default="sponsor",
+    type=click.Choice(["id", "sponsor", "witness", "percentage", "shares"]),
+    help="Column to sort the table by.")
+def sponsors(data, account, witness, not_witness, sort):
+    """
+    Command used for printing information about Utopian.io sponsors.
+    """
+    sort_by = sponsor_sort(sort)
     accounts = []
     response = requests.get("{}sponsors".format(UTOPIAN_API)).json()
     for sponsor in response["results"]:
@@ -103,7 +166,7 @@ def sponsors(data, account, witness, not_witness):
     if data:
         click.echo(json.dumps(accounts, indent=4, sort_keys=True))
     else:
-        sponsors_table(accounts)
+        sponsors_table(accounts, sort_by)
 
 def query_string(limit, skip, category, author, post_filter, status,
     similarity):
@@ -160,26 +223,39 @@ def build_response(limit, category, author, post_filter, status, similarity):
     return responses
 
 @cli.command()
-@click.option("--category", default="all", help="Category of the contribution.",
+@click.option("--category",
+    default="all",
+    help="Category of the contribution.",
     type=click.Choice(["all", "blog", "ideas", "sub-projects", "development",
         "bug-hunting", "translations", "graphics", "analysis", "social",
         "documentation", "tutorials", "video-tutorials", "copywriting"]))
-@click.option("--limit", default=20,
+@click.option("--limit",
+    default=20,
     help="Limit of amount of contributions to retrieve.")
-@click.option("--tags", default="utopian-io",
+@click.option("--tags",
+    default="utopian-io",
     help="Tags to filter the contributions by.")
-@click.option("--author", default="",
+@click.option("--author",
+    default="",
     help="Username to filter the contributions by.")
-@click.option("--filter_by", "-f", default="all", type=click.Choice(["all",
-    "review", "active", "inactive"]), help="Filter contribution by")
-@click.option("--title", default="",
+@click.option("--filter_by", "-f",
+    default="all",
+    type=click.Choice(["all", "review", "active", "inactive"]),
+    help="Filter contribution by")
+@click.option("--title",
+    default="",
     help="String that should be in title of the contribution.")
-@click.option("--status", "-st", default="any", type=click.Choice(["any",
-    "pending", "reviewed"]), help="Status to filter contributions by.")
+@click.option("--status", "-st",
+    default="any",
+    type=click.Choice(["any", "pending", "reviewed"]), 
+    help="Status to filter contributions by.")
 @click.option("--similarity", "-si",
     help="Filter contributions by similar title and body.")
 def contributions(category, limit, tags, author, filter_by, title, status,
     similarity):
+    """
+    Get information about all contributions made to Utopian.io.
+    """
     contributions = build_response(limit, category, author, filter_by, status,
         similarity)
     if tags == "utopian-io":
@@ -256,6 +332,9 @@ def category_points(category, reviewed):
     return multiplier * reviewed
 
 def percentage(accepted, rejected):
+    """
+    Helper function used to calculate the accepted / rejected percentage.
+    """
     if rejected == 0:
         return 100
     elif accepted == 0:
@@ -264,6 +343,9 @@ def percentage(accepted, rejected):
         return round(float(accepted) / (accepted + rejected) * 100)
 
 def contributor_dictionary(response, date):
+    """
+    Creates a dictionary with information about a contributor's performance.
+    """
     contributed_categories = {}
     moderators = {}
     for contribution in response:
@@ -303,6 +385,9 @@ def contributor_dictionary(response, date):
     return contributed_categories, moderators
 
 def moderator_dictionary(response, date):
+    """
+    Creates a dictionary with information about a moderator's performance.
+    """
     reviewed_categories = {}
     authors = {}
     for contribution in response:
@@ -331,6 +416,10 @@ def moderator_dictionary(response, date):
     return reviewed_categories, authors
 
 def moderator_table(reviewed_categories):
+    """
+    Function used to create a table showing the performance of a user as a 
+    moderator.
+    """
     total_points = 0
     total_accepted = 0
     total_rejected = 0
@@ -356,6 +445,10 @@ def moderator_table(reviewed_categories):
     return table
 
 def contributor_table(contributed_categories):
+    """
+    Function used to create a table showing the performance of a user as a 
+    contributor.
+    """
     total_accepted = 0
     total_reward = 0
     total_rejected = 0
@@ -386,6 +479,9 @@ def contributor_table(contributed_categories):
     return table
 
 def details_table(users, limit, sort, column):
+    """
+    Function used to create the details table for a specific command.
+    """
     total_accepted = 0
     total_rejected = 0
 
@@ -409,6 +505,10 @@ def details_table(users, limit, sort, column):
     return table
 
 def date_validator(date, days):
+    """
+    Function that validates the given date / days and makes sure only one of
+    the two is used.
+    """
     if (date and days) or (not date and not days):
         click.echo("Choose either an amount of days or a specific date.")
         return
@@ -444,6 +544,9 @@ def filter_by_category(contributions, categories):
     return filtered_contributions
 
 def supervisor_team(account):
+    """
+    Returns a tuple of the accounts in a supervisor's team.
+    """
     accounts = []
     response = requests.get("{}moderators".format(UTOPIAN_API)).json()
     for moderator in response["results"]:
@@ -454,6 +557,9 @@ def supervisor_team(account):
 
 def build_table(categories, authors, limit, sort, column, details,
     account_type):
+    """
+    Builds a table used in some of the commands.
+    """
     if not details:
         if account_type == "contributor":
             table = contributor_table(categories)
@@ -478,9 +584,12 @@ def build_table(categories, authors, limit, sort, column, details,
     help="See performance of a supervisor's team.")
 @click.option("--details", is_flag=True,
     help="See more details about who you have reviewed/has reviewed you.")
-@click.option("--limit", default=10,
+@click.option("--limit",
+    default=10,
     help="Limit the --details table to the top N authors/moderators.")
-@click.option("--sort", default="total", help="Value to sort the table by.",
+@click.option("--sort",
+    default="total",
+    help="Value to sort the table by.",
     type=click.Choice(["total", "accepted", "rejected"]))
 @click.option("--individual", "-i", is_flag=True, default=False)
 def performance(account_type, account, date, days, details, individual, limit,
@@ -559,6 +668,9 @@ def performance(account_type, account, date, days, details, individual, limit,
 
 
 def project_dictionary(contributions, date):
+    """
+    Create dictionary for the projects command.
+    """
     reviewed_categories = {}
     authors = {}
     for contribution in contributions:
@@ -599,27 +711,38 @@ def project_dictionary(contributions, date):
     return reviewed_categories, authors
 
 @cli.command()
-@click.argument("repository", type=str)
-@click.option("--date", type=DATE,
+@click.argument("repository",type=str)
+@click.option("--date",
+    type=DATE,
     help="See performance for the time period [NOW] - [DATE]")
-@click.option("--days", type=int,
+@click.option("--days",
+    type=int,
     help="See performance for the last N days.")
 @click.option("--details", is_flag=True,
     help="See more details about who you have reviewed/has reviewed you.")
-@click.option("--limit", default=10,
+@click.option("--limit",
+    default=10,
     help="Limit the --details table to the top N authors/moderators.")
-@click.option("--sort", default="total", help="Value to sort the table by.",
+@click.option("--sort",
+    default="total",
+    help="Value to sort the table by.",
     type=click.Choice(["total", "accepted", "rejected"]))
-@click.option("--author", "-a", type=str, multiple=True,
+@click.option("--author", "-a", multiple=True,
+    type=str,
     help="Author to filter the table by.")
-@click.option("--category", "-c", type=click.Choice(["all", "blog", "ideas", 
+@click.option("--category", "-c",
+    help="Category to sort the contributions by.",
+    type=click.Choice(["all", "blog", "ideas", 
     "sub-projects", "development", "bug-hunting", "translations", "graphics",
     "analysis", "social", "documentation", "tutorials", "video-tutorials",
     "copywriting"]), multiple=True)
 @click.option("--individual", "-i", is_flag=True, default=False)
 def project(author, category, date, days, details, limit, individual,
     repository, sort):
-
+    """
+    Get information about the contributions made to a specific project on
+    GitHub.
+    """
     date = date_validator(date, days)
     if not date:
         return
