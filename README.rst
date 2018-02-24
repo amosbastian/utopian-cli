@@ -156,7 +156,4 @@ Project
       -a, --author TEXT               Author to filter the table by.
       -c, --category [all|blog|ideas|sub-projects|development|bug-hunting|translations|graphics|analysis|social|documentation|tutorials|video-tutorials|copywriting]
                                       Category to sort the contributions by.
-      -i, --individual
       --help                          Show this message and exit.
-
-
