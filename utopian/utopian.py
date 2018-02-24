@@ -391,7 +391,8 @@ def moderator_dictionary(response, date):
     reviewed_categories = {}
     authors = {}
     for contribution in response:
-        if date < parse(contribution["created"]):
+        time_moderated = contribution["json_metadata"]["moderator"]["time"]
+        if date < parse(time_moderated).replace(tzinfo=None):
             author = contribution["author"]
             category = contribution["json_metadata"]["type"]
             reviewed_categories.setdefault(category, {
@@ -599,6 +600,7 @@ def performance(account_type, account, date, days, details, individual, limit,
     contributor or as a moderator (if applicable) in a given time period.
     """
     date = date_validator(date, days)
+    print(date)
     if not date:
         return
 
@@ -639,6 +641,7 @@ def performance(account_type, account, date, days, details, individual, limit,
                         "moderator" : user, "limit" : 1})).json()["total"]
                     response = requests.get(build_url("posts", {
                         "moderator" : user, "limit" : total})).json()["results"]
+                    # print(json.dumps(response))
                     responses.extend(response)
                     
         # Loop over all reviewed contributions and build dictionary
