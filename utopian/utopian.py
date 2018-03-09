@@ -15,16 +15,18 @@ UTOPIAN_API = "https://api.utopian.io/api/"
 GITHUB_API = "https://api.github.com/"
 BASE_URL = "https://utopian.io/utopian-io/@{}/{}"
 
+
 @click.group()
 def cli():
     pass
+
 
 def moderators_table(moderators, sort_by):
     """
     Creates and prints the moderator table.
     """
     table = PrettyTable(["ID", "Moderator", "Referrer", "Reviewed",
-        "% Rewards"])
+                        "% Rewards"])
 
     for moderator in sorted(moderators, key=lambda x: x[sort_by], reverse=True):
         if not "referrer" in moderator.keys():
@@ -315,19 +317,48 @@ def is_supervisor(account):
 
 def category_points(category, reviewed):
     """
-    Convert category to points.
+    Convert reviewed contributions to points.
     """
-    if category == "translations":
-        multiplier = 1.25
-    elif (category == "development" or category == "video-tutorials"):
-        multiplier = 1.0
-    elif (category == "graphics" or category == "tutorials"
-        or category == "analysis" or category == "blog"
-        or category == "bug-hunting"):
-        multiplier = 0.75
-    else:
-        multiplier = 0.5
-    return multiplier * reviewed
+    if category == "ideas":
+        return reviewed * 0.75
+    elif category == "development":
+        return reviewed * 2.0
+    elif category == "translations":
+        return reviewed * 1.25
+    elif category == "graphics":
+        return reviewed * 1.0
+    elif category == "documentation":
+        return reviewed * 0.75
+    elif category == "copywriting":
+        return reviewed * 0.75
+    elif category == "tutorials":
+        return reviewed * 1.0
+    elif category == "analysis":
+        return reviewed * 1.25
+    elif category == "social":
+        return reviewed * 1.0
+    elif category == "blog":
+        return reviewed * 0.75
+    elif category == "video-tutorials":
+        return reviewed * 1.25
+    elif category == "bug-hunting":
+        return reviewed * 1.0
+    elif category == "task-ideas":
+        return reviewed * 0.5
+    elif category == "task-development":
+        return reviewed * 0.5
+    elif category == "task-bug-huntung":
+        return reviewed * 0.5
+    elif category == "task-translations":
+        return reviewed * 0.5
+    elif category == "task-graphics":
+        return reviewed * 0.5
+    elif category == "task-documentation":
+        return reviewed * 0.5
+    elif category == "task-analysis":
+        return reviewed * 0.5
+    elif category == "task-social":
+        return reviewed * 0.5
 
 def percentage(accepted, rejected):
     """
@@ -622,8 +653,9 @@ def performance(account_type, account, date, days, details, individual, limit,
             account = supervisor_team(account)
         responses = []
         if individual:
-            click.echo("OVERVIEW OF {}'S TEAM ({} MODERATORS)".format(
-                supervisor[0].upper(), len(account)))
+            if account_type == "supervisor":
+                click.echo("OVERVIEW OF {}'S TEAM ({} MODERATORS)".format(
+                    supervisor[0].upper(), len(account)))
             for user in account:
                 total = requests.get(build_url("posts",
                     {"moderator" : user, "limit" : 1})).json()["total"]
